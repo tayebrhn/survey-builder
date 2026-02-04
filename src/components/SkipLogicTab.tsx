@@ -146,7 +146,7 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                       <label className={labelBase}>Answer(s)</label>
                       <select
                         multiple
-                        className={`${inputBase} min-h-[96px]`}
+                        className={`${inputBase} min-h-24`}
                         value={
                           Array.isArray(rule.trigger_options_sn)
                             ? rule.trigger_options_sn.map(String)
@@ -202,7 +202,7 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                       <label className={labelBase}>Target Question(s)</label>
                       <select
                         multiple
-                        className={`${inputBase} min-h-[96px]`}
+                        className={`${inputBase} min-h-24`}
                         value={rule.target_questions_sn.map(String)}
                         onChange={(e) => {
                           const values = Array.from(

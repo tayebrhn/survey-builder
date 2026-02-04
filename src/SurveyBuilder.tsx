@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Save, Settings, List, FileJson } from "lucide-react";
 import { useSurvey } from "./hooks/useSurvey";
 import { SettingsTab } from "./components/SettingsTab";

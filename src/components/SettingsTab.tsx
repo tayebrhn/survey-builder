@@ -44,7 +44,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUpdateKeyChoice,
   onRemoveKeyChoice,
 }) => {
-  const canRemoveCategory = survey.question_categories.length > 1;
+  const canRemoveCategory = survey?.question_categories!.length > 1;
 
   return (
     <div className="space-y-6">
@@ -128,7 +128,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
 
         <div className="space-y-3">
-          {survey.question_categories.map((cat, idx) => (
+          {survey?.question_categories?.map((cat, idx) => (
             <div
               key={cat.cat_number}
               className="flex items-center gap-3 p-3 rounded-lg
