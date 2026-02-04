@@ -22,14 +22,7 @@ export const QuestionsTab: React.FC<QuestionsTabProps> = ({
         <h3 className="text-lg font-bold text-gray-800">
           Survey Questions ({survey.questions.length})
         </h3>
-        <button
-          onClick={onAddQuestion}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Add Question
-        </button>
       </div>
-
       {survey.questions.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-lg mb-2">No questions yet</p>
@@ -43,12 +36,21 @@ export const QuestionsTab: React.FC<QuestionsTabProps> = ({
               question={q}
               index={idx}
               categories={survey.question_categories || []}
+              questions={survey.questions || []}
               onUpdate={(updates) => onUpdateQuestion(idx, updates)}
               onDelete={() => onDeleteQuestion(idx)}
             />
           ))}
         </div>
       )}
+      <div className="flex justify-end">
+        <button
+          onClick={onAddQuestion}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+        >
+          <Plus size={18} /> Add Question
+        </button>
+      </div>
     </div>
   );
 };

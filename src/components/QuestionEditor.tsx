@@ -2,12 +2,13 @@ import React from "react";
 import { GripVertical, Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../types";
 import { QUESTION_TYPE } from "../types";
-import { RecursiveOptionEditor } from "./RecursiveOptionEditor";
+import { RecursiveOptionEditor } from "../index";
 
 interface QuestionEditorProps {
   question: SurveyQuestion;
   index: number;
   categories: Array<{ cat_number: number; name: string }>;
+  questions: SurveyQuestion[];
   onUpdate: (updates: Partial<SurveyQuestion>) => void;
   onDelete: () => void;
 }
@@ -36,8 +37,9 @@ const labelBase =
 
 export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   question,
-  index,
+  // index,
   categories,
+  questions,
   onUpdate,
   onDelete,
 }) => {
@@ -45,7 +47,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     QUESTION_TYPE.SINGLE_CHOICE,
     QUESTION_TYPE.MULTISELECT,
     QUESTION_TYPE.DROP_DOWN,
-    QUESTION_TYPE.RATING,
   ].includes(question.type);
 
   return (
@@ -170,13 +171,60 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
               </div>
             </div>
           </div>
+          {/* --- NEW: Dependency Field --- */}
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+              Dependency (Parent Question)
+            </label>
+            <div className="flex gap-4 items-center">
+              <select
+                className="flex-1 border border-gray-300 rounded p-1.5 text-sm bg-white"
+                value={question.depends_on || ""}
+                onChange={(e) =>
+                  onUpdate({
+                    depends_on: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  })
+                }
+              >
+                <option value="">-- No Dependency (Always Show) --</option>
+                {questions
+                  .filter(
+                    (parentQ) =>
+                      // Rule 1: Must be before the current question
+                      parentQ.sequence_num < question.sequence_num &&
+                      // Rule 2: Must be an Option type
+                      [
+                        QUESTION_TYPE.SINGLE_CHOICE,
+                        QUESTION_TYPE.DROP_DOWN,
+                      ].includes(parentQ.type),
+                  )
+                  .map((parentQ) => (
+                    <option
+                      key={parentQ.sequence_num}
+                      value={parentQ.sequence_num}
+                    >
+                      Q{parentQ.sequence_num}:{" "}
+                      {parentQ.question.substring(0, 40)}
+                      {parentQ.question.length > 40 ? "..." : ""}
+                    </option>
+                  ))}
+              </select>
 
+              {/* Visual Indicator if Dependency is Set */}
+              {question.depends_on && (
+                <div className="text-xs text-yellow-700 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                  Linked to Q{question.depends_on}
+                </div>
+              )}
+            </div>
+          </div>
           {/* Options Editor */}
           {requiresOptions && (
-            <div className="rounded-lg border border-dashed border-gray-300 p-4">
-              <h4 className="text-sm font-semibold text-gray-600 mb-3">
-                Options
-              </h4>
+            <div className="rounded-lg border border-dashed border-gray-300 px-4 py-2">
+
               <RecursiveOptionEditor
                 options={question.options}
                 onChange={(newOptions) => onUpdate({ options: newOptions })}

@@ -34,43 +34,23 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
         <h3 className="text-lg font-bold text-gray-800">
           Conditional Logic ({survey.skip_logic?.length || 0})
         </h3>
-
-        <button
-          onClick={onAddSkipLogic}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg
-                     bg-indigo-600 text-white text-sm font-medium
-                     hover:bg-indigo-700 transition"
-        >
-          <Plus size={16} />
-          Add Rule
-        </button>
       </div>
 
       {/* Empty State */}
       {!survey.skip_logic || survey.skip_logic.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16
-                        bg-gray-50 rounded-xl border border-dashed border-gray-300">
-          <p className="text-lg font-medium text-gray-500 mb-1">
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-lg mb-2">
             No conditional rules yet
           </p>
-          <p className="text-sm text-gray-400 mb-4">
+          <p className="text-sm">
             Create rules to control question flow
           </p>
-
-          <button
-            onClick={onAddSkipLogic}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg
-                       bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition"
-          >
-            <Plus size={16} />
-            Add your first rule
-          </button>
         </div>
       ) : (
         <div className="space-y-5">
           {survey.skip_logic.map((rule, idx) => {
             const triggerQuestion = survey.questions.find(
-              (q) => q.sequence_num === rule.trigger_question_sn
+              (q) => q.sequence_num === rule.trigger_question_sn,
             );
 
             return (
@@ -81,8 +61,10 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
               >
                 {/* Rule Header */}
                 <div className="flex justify-between items-center">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full
-                                   bg-indigo-50 text-indigo-700 text-xs font-bold">
+                  <span
+                    className="inline-flex items-center px-3 py-1 rounded-full
+                                   bg-indigo-50 text-indigo-700 text-xs font-bold"
+                  >
                     Rule #{idx + 1}
                   </span>
 
@@ -155,7 +137,7 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                         onChange={(e) => {
                           const values = Array.from(
                             e.target.selectedOptions,
-                            (opt) => Number(opt.value)
+                            (opt) => Number(opt.value),
                           );
                           onUpdateSkipLogic(idx, {
                             trigger_options_sn: values,
@@ -207,7 +189,7 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                         onChange={(e) => {
                           const values = Array.from(
                             e.target.selectedOptions,
-                            (opt) => Number(opt.value)
+                            (opt) => Number(opt.value),
                           );
                           onUpdateSkipLogic(idx, {
                             target_questions_sn: values,
@@ -216,16 +198,11 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                       >
                         {survey.questions
                           .filter(
-                            (q) =>
-                              q.sequence_num > rule.trigger_question_sn
+                            (q) => q.sequence_num > rule.trigger_question_sn,
                           )
                           .map((q) => (
-                            <option
-                              key={q.sequence_num}
-                              value={q.sequence_num}
-                            >
-                              Q{q.sequence_num}:{" "}
-                              {q.question.substring(0, 40)}…
+                            <option key={q.sequence_num} value={q.sequence_num}>
+                              Q{q.sequence_num}: {q.question.substring(0, 40)}…
                             </option>
                           ))}
                       </select>
@@ -237,6 +214,14 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
           })}
         </div>
       )}
+      <div className="flex justify-end">
+        <button
+          onClick={onAddSkipLogic}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+        >
+          <Plus size={18} /> Add Rule
+        </button>
+      </div>
     </div>
   );
 };
