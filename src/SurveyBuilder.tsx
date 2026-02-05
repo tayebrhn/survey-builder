@@ -40,7 +40,7 @@ export default function SurveyBuilder() {
               </>
             ) : (
               <>
-                <Save size={18} /> Save & Export
+                <Save size={18} /> Save
               </>
             )}
           </button>

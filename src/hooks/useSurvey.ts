@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type {
   SurveyExport,
   SurveyQuestion,
   SkipLogicRule,
   KeyChoice,
-} from "../types";
+} from "..";
 import { createEmptyQuestion, initialSurveyState } from "..";
 
 export const useSurvey = (surveyId?: string) => {
@@ -34,7 +35,7 @@ export const useSurvey = (surveyId?: string) => {
         setSurvey(data);
       } catch (err) {
         console.error(err);
-        alert("Could not load survey data.");
+        toast.error("Could not load survey data. refresh again.");
       } finally {
         setIsLoading(false);
       }
@@ -224,14 +225,14 @@ export const useSurvey = (surveyId?: string) => {
 
       const result = await response.json();
       console.log("Backend Response:", result);
-      alert(
+      toast.success(
         surveyId
           ? "Survey updated successfully!"
           : "Survey created successfully!",
       );
     } catch (error: any) {
       console.error("Save Error:", error);
-      alert(`Error: ${error.message}`);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setIsSaving(false);
     }

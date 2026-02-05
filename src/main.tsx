@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { Toaster } from "sonner";
 import "./index.css";
 import { SurveyBuilder, SurveyProvider } from ".";
 // Function to extract surveyId from URL
@@ -11,6 +12,7 @@ const surveyId = getSurveyIdFromUrl() || undefined; // From URL params, state, e
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
+    <Toaster richColors position="top-right" />
     <SurveyProvider surveyId={surveyId}>
       <SurveyBuilder />
     </SurveyProvider>
