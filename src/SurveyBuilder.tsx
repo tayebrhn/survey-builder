@@ -1,32 +1,15 @@
 import { useState } from "react";
 import { Save, Settings, List, FileJson } from "lucide-react";
-import { useSurvey } from "./hooks/useSurvey";
-import { SettingsTab } from "./components/SettingsTab";
-import { QuestionsTab } from "./components/QuestionsTab";
-import { SkipLogicTab } from "./components/SkipLogicTab";
-import { JsonTab } from "./components/JsonTab";
+import { SettingsTab } from "./";
+import { QuestionsTab } from "./";
+import { SkipLogicTab } from "./";
+import { JsonTab } from "./";
+import { MetaProvider, useSurveyContext } from "./context";
 
 type TabType = "settings" | "questions" | "logic" | "json";
 
 export default function SurveyBuilder() {
-  const {
-    survey,
-    updateMetadata,
-    addCategory,
-    updateCategory,
-    onRemoveCategory,
-    addQuestion,
-    updateQuestion,
-    deleteQuestion,
-    addSkipLogic,
-    updateSkipLogic,
-    removeSkipLogic,
-    addKeyChoice,
-    updateKeyChoice,
-    removeKeyChoice,
-    handleSave,
-  } = useSurvey();
-
+  const { survey, handleSave, isSaving } = useSurveyContext();
   const [activeTab, setActiveTab] = useState<TabType>("settings");
 
   return (
@@ -42,9 +25,23 @@ export default function SurveyBuilder() {
           </div>
           <button
             onClick={handleSave}
-            className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-50 transition"
+            disabled={isSaving} // Prevent multiple clicks
+            className={`${
+              isSaving
+                ? "bg-gray-400"
+                : "bg-white text-blue-600 hover:bg-blue-50"
+            } px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition`}
           >
-            <Save size={18} /> Save & Export
+            {isSaving ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={18} /> Save & Export
+              </>
+            )}
           </button>
         </div>
 
@@ -93,37 +90,14 @@ export default function SurveyBuilder() {
         </div>
 
         {/* Content Area */}
-        <div className="p-8 min-h-125">
-          {activeTab === "settings" && (
-            <SettingsTab
-              survey={survey}
-              onUpdateMetadata={updateMetadata}
-              onAddCategory={addCategory}
-              onUpdateCategory={updateCategory}
-              onRemoveCategory={onRemoveCategory}
-              onAddKeyChoice={addKeyChoice}
-              onUpdateKeyChoice={updateKeyChoice}
-              onRemoveKeyChoice={removeKeyChoice}
-            />
-          )}
-          {activeTab === "questions" && (
-            <QuestionsTab
-              survey={survey}
-              onAddQuestion={addQuestion}
-              onUpdateQuestion={updateQuestion}
-              onDeleteQuestion={deleteQuestion}
-            />
-          )}
-          {activeTab === "logic" && (
-            <SkipLogicTab
-              survey={survey}
-              onAddSkipLogic={addSkipLogic}
-              onUpdateSkipLogic={updateSkipLogic}
-              onRemoveSkipLogic={removeSkipLogic}
-            />
-          )}
-          {activeTab === "json" && <JsonTab survey={survey} />}
-        </div>
+        <MetaProvider>
+          <div className="p-8 min-h-125">
+            {activeTab === "settings" && <SettingsTab />}
+            {activeTab === "questions" && <QuestionsTab />}
+            {activeTab === "logic" && <SkipLogicTab />}
+            {activeTab === "json" && <JsonTab />}
+          </div>
+        </MetaProvider>
       </div>
     </div>
   );

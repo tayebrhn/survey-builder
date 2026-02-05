@@ -8,7 +8,7 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
-import type { QuestionOption } from "../types";
+import type { QuestionOption } from "../../types";
 
 const MAX_NESTING_LEVEL = 2;
 

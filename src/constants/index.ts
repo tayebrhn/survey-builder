@@ -1,7 +1,6 @@
 import type { SurveyExport, SurveyQuestion, QuestionOption } from "../types";
-import { QUESTION_TYPE } from "../types";
 
-export const generateId = () => Math.random().toString(36).substr(2, 9);
+export const generateId = () => crypto.randomUUID();
 
 export const createEmptyOption = (sequence: number): QuestionOption => ({
   sequence,
@@ -13,10 +12,10 @@ export const createEmptyOption = (sequence: number): QuestionOption => ({
 
 export const createEmptyQuestion = (
   seq: number,
-  catId: number
+  catId: number,
 ): SurveyQuestion => ({
   sequence_num: seq,
-  type: QUESTION_TYPE.TEXT,
+  type: "",
   question: "",
   category: catId,
   constraints: { verifiable: false, required: true },
@@ -24,13 +23,16 @@ export const createEmptyQuestion = (
 });
 
 export const initialSurveyState: SurveyExport = {
-  id: generateId(),
+  // id: generateId(),
   metadata: {
     title: "Untitled Survey",
     description: "",
     instructions: "",
     version: "1.0",
     created: new Date().toISOString().split("T")[0],
+    start_date: "", // Initialized
+    end_date: "", // Initialized
+    is_active: false,
     language: "en",
   },
   questions: [],

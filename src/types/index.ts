@@ -17,17 +17,7 @@ export interface KeyChoice {
   description: string;
 }
 
-export const QUESTION_TYPE = {
-  MULTISELECT: "multi_select",
-  SINGLE_CHOICE: "single_choice",
-  NUMBER: "number",
-  RATING: "rating",
-  DROP_DOWN: "drop_down",
-  TEXT_AREA: "text_area",
-  TEXT: "text",
-} as const;
-
-export type QuestionType = (typeof QUESTION_TYPE)[keyof typeof QUESTION_TYPE];
+export type QuestionType = string;
 
 export interface SurveyQuestion {
   sequence_num: number;
@@ -49,26 +39,23 @@ export interface SurveyQuestion {
 export interface SkipLogicRule {
   trigger_question_sn: number; // Which question triggers the rule
   trigger_options_sn: number[] | number; // Value(s) that trigger the rule
-  operator:
-    | "EQUALS"
-    | "NOT_EQUALS"
-    | "IN"
-    | "GREATER_THAN"
-    | "LESS_THAN"
-    | "CONTAINS";
-  action: Action;
+  operator: string;
+  action: string;
   target_questions_sn: number[]; // Only for JUMP_TO Action
 }
 export type Action = "SHOW" | "HIDE" | "JUMP_TO" | "ENABLE" | "REQUIRE";
 
 export interface SurveyExport {
-  id: string;
+  id?: string;
   metadata: {
     title: string;
     description: string;
     instructions: string;
     version: string;
     created: string; // ISO date string, e.g., "2025-08-12"
+    start_date: string; // Added
+    end_date: string;
+    is_active: boolean;
     language: string;
   };
   questions: SurveyQuestion[];

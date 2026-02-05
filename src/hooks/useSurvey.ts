@@ -9,10 +9,10 @@ import { initialSurveyState, createEmptyQuestion } from "../constants";
 
 export const useSurvey = () => {
   const [survey, setSurvey] = useState<SurveyExport>(initialSurveyState);
-
+  const [isSaving, setIsSaving] = useState(false);
   const updateMetadata = (
     field: keyof SurveyExport["metadata"],
-    value: string,
+    value: string|boolean,
   ) => {
     setSurvey((prev) => ({
       ...prev,
@@ -37,7 +37,7 @@ export const useSurvey = () => {
     setSurvey({ ...survey, question_categories: newCats });
   };
 
-  const onRemoveCategory = (index: number) => {
+  const removeCategory = (index: number) => {
     setSurvey((prev) => {
       const categories = prev.question_categories ?? [];
 
@@ -163,8 +163,42 @@ export const useSurvey = () => {
   };
 
   const handleSave = async () => {
-    console.log("Saving survey:", survey);
-    alert("Survey JSON logged to console ready for backend!");
+    // 1. Start loading state
+    setIsSaving(true);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/surveys/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // If your backend requires CSRF or Auth tokens, add them here:
+          // "X-CSRFToken": getCookie('csrftoken'),
+        },
+        body: JSON.stringify(survey),
+      });
+
+      // 2. Check if the backend returned an error (e.g., 400 or 500)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.detail ||
+            errorData.message ||
+            "Failed to save survey to backend.",
+        );
+      }
+
+      // 3. Handle success
+      const result = await response.json();
+      console.log("Backend Response:", result);
+      alert("Survey created successfully!");
+    } catch (error: any) {
+      // 4. Handle network errors or thrown errors
+      console.error("Save Error:", error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      // 5. Reset loading state
+      setIsSaving(false);
+    }
   };
 
   return {
@@ -172,7 +206,7 @@ export const useSurvey = () => {
     updateMetadata,
     addCategory,
     updateCategory,
-    onRemoveCategory,
+    removeCategory,
     addKeyChoice,
     updateKeyChoice,
     removeKeyChoice,
@@ -183,5 +217,6 @@ export const useSurvey = () => {
     updateSkipLogic,
     removeSkipLogic,
     handleSave,
+    isSaving,
   };
 };

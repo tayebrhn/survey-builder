@@ -1,15 +1,9 @@
 import React from "react";
 import { Plus, Trash2 } from "lucide-react";
-import type { SurveyExport, SkipLogicRule } from "../types";
+import { SearchableMultiSelect } from "./subs/SearchableMultiSelect";
+import { useMetaContext, useSurveyContext } from "../context";
 
 type Action = "SHOW" | "HIDE" | "JUMP_TO" | "ENABLE" | "REQUIRE";
-
-interface SkipLogicTabProps {
-  survey: SurveyExport;
-  onAddSkipLogic: () => void;
-  onUpdateSkipLogic: (index: number, updates: Partial<SkipLogicRule>) => void;
-  onRemoveSkipLogic: (index: number) => void;
-}
 
 /* -------------------------------
    Reusable Tailwind classes
@@ -21,12 +15,14 @@ const inputBase =
 const labelBase =
   "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
 
-export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
-  survey,
-  onAddSkipLogic,
-  onUpdateSkipLogic,
-  onRemoveSkipLogic,
-}) => {
+export const SkipLogicTab: React.FC = () => {
+  const { survey, addSkipLogic, updateSkipLogic, removeSkipLogic } =
+    useSurveyContext();
+  const { meta } = useMetaContext();
+  const { conditions, actions } = meta?.skip_logic || {
+    conditions: [],
+    actions: [],
+  };
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -39,12 +35,8 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
       {/* Empty State */}
       {!survey.skip_logic || survey.skip_logic.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          <p className="text-lg mb-2">
-            No conditional rules yet
-          </p>
-          <p className="text-sm">
-            Create rules to control question flow
-          </p>
+          <p className="text-lg mb-2">No conditional rules yet</p>
+          <p className="text-sm">Create rules to control question flow</p>
         </div>
       ) : (
         <div className="space-y-5">
@@ -69,7 +61,7 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                   </span>
 
                   <button
-                    onClick={() => onRemoveSkipLogic(idx)}
+                    onClick={() => removeSkipLogic(idx)}
                     title="Delete rule"
                     className="p-2 rounded-md text-gray-400
                                hover:text-red-600 hover:bg-red-50 transition"
@@ -90,7 +82,7 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                         className={inputBase}
                         value={rule.trigger_question_sn}
                         onChange={(e) =>
-                          onUpdateSkipLogic(idx, {
+                          updateSkipLogic(idx, {
                             trigger_question_sn: Number(e.target.value),
                           })
                         }
@@ -111,45 +103,37 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                         className={inputBase}
                         value={rule.operator}
                         onChange={(e) =>
-                          onUpdateSkipLogic(idx, {
-                            operator: e.target.value as any,
+                          updateSkipLogic(idx, {
+                            operator: e.target.value,
                           })
                         }
                       >
-                        <option value="EQUALS">Equals</option>
-                        <option value="NOT_EQUALS">Does Not Equal</option>
-                        <option value="IN">Is In</option>
-                        <option value="CONTAINS">Contains</option>
+                        {conditions.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
                     {/* Answer Options */}
                     <div>
                       <label className={labelBase}>Answer(s)</label>
-                      <select
-                        multiple
-                        className={`${inputBase} min-h-24`}
-                        value={
-                          Array.isArray(rule.trigger_options_sn)
-                            ? rule.trigger_options_sn.map(String)
-                            : [String(rule.trigger_options_sn)]
+                      <SearchableMultiSelect
+                        options={
+                          triggerQuestion?.options.map((opt) => ({
+                            value: opt.sequence,
+                            label: opt.text,
+                          })) ?? []
                         }
-                        onChange={(e) => {
-                          const values = Array.from(
-                            e.target.selectedOptions,
-                            (opt) => Number(opt.value),
-                          );
-                          onUpdateSkipLogic(idx, {
+                        value={rule.trigger_options_sn ?? []}
+                        onChange={(values) =>
+                          updateSkipLogic(idx, {
                             trigger_options_sn: values,
-                          });
-                        }}
-                      >
-                        {triggerQuestion?.options.map((opt) => (
-                          <option key={opt.sequence} value={opt.sequence}>
-                            {opt.text}
-                          </option>
-                        ))}
-                      </select>
+                          })
+                        }
+                        placeholder="Select answer(s)"
+                      />
                     </div>
                   </div>
                 </div>
@@ -166,46 +150,39 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
                         className={inputBase}
                         value={rule.action}
                         onChange={(e) =>
-                          onUpdateSkipLogic(idx, {
+                          updateSkipLogic(idx, {
                             action: e.target.value as Action,
                           })
                         }
                       >
-                        <option value="SHOW">Show</option>
-                        <option value="HIDE">Hide</option>
-                        <option value="JUMP_TO">Jump To</option>
-                        <option value="ENABLE">Enable</option>
-                        <option value="REQUIRE">Make Required</option>
+                        {actions.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
                     {/* Targets */}
                     <div>
                       <label className={labelBase}>Target Question(s)</label>
-                      <select
-                        multiple
-                        className={`${inputBase} min-h-24`}
-                        value={rule.target_questions_sn.map(String)}
-                        onChange={(e) => {
-                          const values = Array.from(
-                            e.target.selectedOptions,
-                            (opt) => Number(opt.value),
-                          );
-                          onUpdateSkipLogic(idx, {
-                            target_questions_sn: values,
-                          });
-                        }}
-                      >
-                        {survey.questions
+                      <SearchableMultiSelect
+                        options={survey.questions
                           .filter(
                             (q) => q.sequence_num > rule.trigger_question_sn,
                           )
-                          .map((q) => (
-                            <option key={q.sequence_num} value={q.sequence_num}>
-                              Q{q.sequence_num}: {q.question.substring(0, 40)}…
-                            </option>
-                          ))}
-                      </select>
+                          .map((q) => ({
+                            value: q.sequence_num,
+                            label: `Q${q.sequence_num}: ${q.question}`,
+                          }))}
+                        value={rule.target_questions_sn}
+                        onChange={(values) =>
+                          updateSkipLogic(idx, {
+                            target_questions_sn: values,
+                          })
+                        }
+                        placeholder="Select target questions"
+                      />
                     </div>
                   </div>
                 </div>
@@ -216,7 +193,7 @@ export const SkipLogicTab: React.FC<SkipLogicTabProps> = ({
       )}
       <div className="flex justify-end">
         <button
-          onClick={onAddSkipLogic}
+          onClick={addSkipLogic}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
         >
           <Plus size={18} /> Add Rule

@@ -1,21 +1,11 @@
 import React from "react";
 import { Plus } from "lucide-react";
-import type { SurveyExport, SurveyQuestion } from "../types";
-import { QuestionEditor } from "./QuestionEditor";
+import { QuestionEditor } from "./subs/QuestionEditor";
+import { useSurveyContext } from "../context";
 
-interface QuestionsTabProps {
-  survey: SurveyExport;
-  onAddQuestion: () => void;
-  onUpdateQuestion: (index: number, updates: Partial<SurveyQuestion>) => void;
-  onDeleteQuestion: (index: number) => void;
-}
-
-export const QuestionsTab: React.FC<QuestionsTabProps> = ({
-  survey,
-  onAddQuestion,
-  onUpdateQuestion,
-  onDeleteQuestion,
-}) => {
+export const QuestionsTab: React.FC = () => {
+  const { survey, addQuestion, updateQuestion, deleteQuestion } =
+    useSurveyContext();
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -37,15 +27,15 @@ export const QuestionsTab: React.FC<QuestionsTabProps> = ({
               index={idx}
               categories={survey.question_categories || []}
               questions={survey.questions || []}
-              onUpdate={(updates) => onUpdateQuestion(idx, updates)}
-              onDelete={() => onDeleteQuestion(idx)}
+              onUpdate={(updates) => updateQuestion(idx, updates)}
+              onDelete={() => deleteQuestion(idx)}
             />
           ))}
         </div>
       )}
       <div className="flex justify-end">
         <button
-          onClick={onAddQuestion}
+          onClick={addQuestion}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
         >
           <Plus size={18} /> Add Question

@@ -1,8 +1,8 @@
 import React from "react";
 import { GripVertical, Trash2 } from "lucide-react";
-import type { SurveyQuestion, QuestionType } from "../types";
-import { QUESTION_TYPE } from "../types";
-import { RecursiveOptionEditor } from "../index";
+import type { SurveyQuestion, QuestionType } from "../../types";
+import { RecursiveOptionEditor } from "../../index";
+import { useMetaContext } from "../../context/MetaContext";
 
 interface QuestionEditorProps {
   question: SurveyQuestion;
@@ -12,18 +12,6 @@ interface QuestionEditorProps {
   onUpdate: (updates: Partial<SurveyQuestion>) => void;
   onDelete: () => void;
 }
-
-/* -------------------------------
-   Question type options
--------------------------------- */
-const QUESTION_TYPE_OPTIONS = [
-  QUESTION_TYPE.TEXT,
-  QUESTION_TYPE.TEXT_AREA,
-  QUESTION_TYPE.SINGLE_CHOICE,
-  QUESTION_TYPE.DROP_DOWN,
-  QUESTION_TYPE.NUMBER,
-  QUESTION_TYPE.RATING,
-] as const;
 
 /* -------------------------------
    Reusable Tailwind styles
@@ -43,11 +31,11 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onUpdate,
   onDelete,
 }) => {
-  const requiresOptions = [
-    QUESTION_TYPE.SINGLE_CHOICE,
-    QUESTION_TYPE.MULTISELECT,
-    QUESTION_TYPE.DROP_DOWN,
-  ].includes(question.type);
+  const { meta, loading } = useMetaContext();
+  const questionTypes = meta?.question_types||[];
+
+  const typeMeta = questionTypes?.find((t) => t.value === question.type);
+  const requiresOptions = typeMeta?.has_options ?? false;
 
   return (
     <div
@@ -102,12 +90,21 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                   className={inputBase}
                   value={question.type}
                   onChange={(e) =>
-                    onUpdate({ type: e.target.value as QuestionType })
+                    onUpdate({
+                      type: e.target.value as QuestionType,
+                      // reset options if new type doesn't support them
+                      options: questionTypes.find(
+                        (t) => t.value === e.target.value,
+                      )?.has_options
+                        ? question.options
+                        : [],
+                    })
                   }
+                  disabled={loading}
                 >
-                  {QUESTION_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
+                  {questionTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
                     </option>
                   ))}
                 </select>
@@ -190,16 +187,16 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
               >
                 <option value="">-- No Dependency (Always Show) --</option>
                 {questions
-                  .filter(
-                    (parentQ) =>
-                      // Rule 1: Must be before the current question
+                  .filter((parentQ) => {
+                    const parentMeta = questionTypes.find(
+                      (t) => t.value === parentQ.type,
+                    );
+
+                    return (
                       parentQ.sequence_num < question.sequence_num &&
-                      // Rule 2: Must be an Option type
-                      [
-                        QUESTION_TYPE.SINGLE_CHOICE,
-                        QUESTION_TYPE.DROP_DOWN,
-                      ].includes(parentQ.type),
-                  )
+                      parentMeta?.has_options
+                    );
+                  })
                   .map((parentQ) => (
                     <option
                       key={parentQ.sequence_num}
@@ -224,9 +221,9 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
           {/* Options Editor */}
           {requiresOptions && (
             <div className="rounded-lg border border-dashed border-gray-300 px-4 py-2">
-
               <RecursiveOptionEditor
                 options={question.options}
+                // maxOptions={typeMeta?.max_options}
                 onChange={(newOptions) => onUpdate({ options: newOptions })}
               />
             </div>
