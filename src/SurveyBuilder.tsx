@@ -1,12 +1,21 @@
 import { useState } from "react";
-import { Save, Settings, List, FileJson, Loader } from "lucide-react";
-import { JsonTab, MetaProvider, QuestionsTab, SettingsTab, SkipLogicTab, SurveySkeleton, useSurveyContext } from ".";
-
+import { Save, Settings, List, FileJson, Loader, Download } from "lucide-react";
+import {
+  JsonTab,
+  MetaProvider,
+  QuestionsTab,
+  SettingsTab,
+  SkipLogicTab,
+  SurveySkeleton,
+  useSurveyContext,
+} from ".";
+import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
 
 type TabType = "settings" | "questions" | "logic" | "json";
 
 export default function SurveyBuilder() {
-  const { survey, handleSave, isSaving, isLoading } = useSurveyContext();
+  const { survey, handleSave, exportSurveyToJSON, isSaving, isLoading } =
+    useSurveyContext();
   const [activeTab, setActiveTab] = useState<TabType>("settings");
 
   // In your SurveyBuilder component, replace the loading condition:
@@ -25,25 +34,23 @@ export default function SurveyBuilder() {
             </h1>
             <p className="text-blue-100 text-sm">Builder v1.0</p>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={isSaving || isLoading} // Disable while saving or loading
-            className={`${
-              isSaving || isLoading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-white text-blue-600 hover:bg-blue-50"
-            } px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition`}
-          >
-            {isSaving ? (
-              <>
-                <Loader className="animate-spin h-4 w-4" /> Saving...
-              </>
-            ) : (
-              <>
-                <Save size={18} /> Save
-              </>
-            )}
-          </button>
+          <div className="flex gap-3">
+            <HeaderActionButton
+              onClick={exportSurveyToJSON}
+              disabled={isSaving || isLoading}
+              icon={<Download size={18} />}
+              label="Export"
+            />
+
+            <HeaderActionButton
+              onClick={handleSave}
+              disabled={isSaving || isLoading}
+              loading={isSaving}
+              icon={<Save size={18} />}
+              label="Save"
+              loadingLabel="Saving..."
+            />
+          </div>
         </div>
 
         {/* Navigation Tabs - Disable while loading */}
@@ -71,7 +78,7 @@ export default function SurveyBuilder() {
                 : "text-gray-500 hover:text-gray-700"
             } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            <List size={18} /> 
+            <List size={18} />
             <span className="flex items-center gap-1">
               Questions ({survey.questions.length})
               {isLoading && activeTab === "questions" && (

@@ -11,6 +11,50 @@ import { createEmptyQuestion, initialSurveyState } from "..";
 export const useSurvey = (surveyId?: string) => {
   const [survey, setSurvey] = useState<SurveyExport>(initialSurveyState);
   const [isLoading, setIsLoading] = useState(false);
+
+  /* ----------------------------------
+     Export survey to JSON (download)
+  ---------------------------------- */
+  const exportSurveyToJSON = () => {
+    try {
+      // Generate safe filename
+      const getSafeFilename = () => {
+        const title = (survey.metadata.title || "untitled-survey")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 50); // Limit length
+
+        const now = new Date();
+        const dateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+        const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "-"); // HH-MM-SS
+
+        return `survey-${title}-${dateStr}-${timeStr}.json`;
+      };
+
+      const filename = getSafeFilename();
+      const json = JSON.stringify(survey, null, 2);
+
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      URL.revokeObjectURL(url);
+
+      toast.success(`Survey exported! Saved as: ${filename}`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export survey. Please try again.");
+    }
+  };
+
   useEffect(() => {
     if (!surveyId) return; // It's a new survey, do nothing
 
@@ -253,6 +297,7 @@ export const useSurvey = (surveyId?: string) => {
     updateSkipLogic,
     removeSkipLogic,
     handleSave,
+    exportSurveyToJSON,
     isSaving,
     isLoading,
   };
