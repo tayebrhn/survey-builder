@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { SearchableMultiSelect } from "./subs/SearchableMultiSelect";
-import { useMetaContext, useSurveyContext } from "../context";
+import { useMetaContext, useSurveyContext } from "..";
 
 type Action = "SHOW" | "HIDE" | "JUMP_TO" | "ENABLE" | "REQUIRE";
 

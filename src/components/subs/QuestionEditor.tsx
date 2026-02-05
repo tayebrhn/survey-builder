@@ -1,8 +1,8 @@
 import React from "react";
 import { GripVertical, Trash2 } from "lucide-react";
-import type { SurveyQuestion, QuestionType } from "../../types";
-import { RecursiveOptionEditor } from "../../index";
-import { useMetaContext } from "../../context/MetaContext";
+import type { SurveyQuestion, QuestionType } from "../..";
+import { RecursiveOptionEditor } from "../..";
+import { useMetaContext } from "../..";
 
 interface QuestionEditorProps {
   question: SurveyQuestion;
@@ -32,7 +32,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onDelete,
 }) => {
   const { meta, loading } = useMetaContext();
-  const questionTypes = meta?.question_types||[];
+  const questionTypes = meta?.question_types || [];
 
   const typeMeta = questionTypes?.find((t) => t.value === question.type);
   const requiresOptions = typeMeta?.has_options ?? false;

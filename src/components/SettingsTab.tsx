@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Switch } from "@headlessui/react";
-import { useSurveyContext, useMetaContext } from "../context";
+import { useSurveyContext, useMetaContext } from "..";
 
 /* -------------------------------
    Reusable Tailwind styles
@@ -137,8 +137,8 @@ export const SettingsTab: React.FC = () => {
             <input
               type="date"
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-              value={survey.metadata.start_date}
-              onChange={(e) => updateMetadata("start_date", e.target.value)}
+              value={survey.metadata.start}
+              onChange={(e) => updateMetadata("start", e.target.value)}
             />
           </div>
           <div>
@@ -148,8 +148,8 @@ export const SettingsTab: React.FC = () => {
             <input
               type="date"
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-              value={survey.metadata.end_date}
-              onChange={(e) => updateMetadata("end_date", e.target.value)}
+              value={survey.metadata.end}
+              onChange={(e) => updateMetadata("end", e.target.value)}
             />
           </div>
         </div>

@@ -1,4 +1,4 @@
-import type { SurveyExport, SurveyQuestion, QuestionOption } from "../types";
+import type { SurveyExport, SurveyQuestion, QuestionOption } from "..";
 
 export const generateId = () => crypto.randomUUID();
 
@@ -30,8 +30,8 @@ export const initialSurveyState: SurveyExport = {
     instructions: "",
     version: "1.0",
     created: new Date().toISOString().split("T")[0],
-    start_date: "", // Initialized
-    end_date: "", // Initialized
+    start: "", // Initialized
+    end: "", // Initialized
     is_active: false,
     language: "en",
   },

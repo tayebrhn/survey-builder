@@ -1,5 +1,5 @@
 import React from "react";
-import { useSurveyContext } from "../context";
+import { useSurveyContext } from "..";
 
 export const JsonTab: React.FC = () => {
   const { survey } = useSurveyContext();

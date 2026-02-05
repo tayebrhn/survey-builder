@@ -8,7 +8,7 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
-import type { QuestionOption } from "../../types";
+import type { QuestionOption } from "../../";
 
 const MAX_NESTING_LEVEL = 2;
 
@@ -77,6 +77,17 @@ export const RecursiveOptionEditor: React.FC<{
     }
   };
 
+  // Helper function to safely get sub_options
+  const getSubOptions = (opt: QuestionOption): QuestionOption[] => {
+    return opt.sub_options || [];
+  };
+
+  // Normalize all options to ensure sub_options exists
+  const normalizedOptions = options.map((opt) => ({
+    ...opt,
+    sub_options: getSubOptions(opt),
+  }));
+
   return (
     <div
       className={`space-y-2 ${level > 0 ? "ml-4 pl-3 border-l border-gray-200" : "mt-4"}`}
@@ -85,10 +96,10 @@ export const RecursiveOptionEditor: React.FC<{
       <div className="flex justify-between items-center mb-2 bg-gray-50 p-2 rounded-md border border-gray-100">
         <div className="flex items-center gap-3">
           <h4 className="text-sm font-bold text-gray-700 uppercase tracking-tight">
-            Level {level} Options ({options.length})
+            Level {level} Options ({normalizedOptions.length})
           </h4>
 
-          {options.length > 0 && (
+          {normalizedOptions.length > 0 && (
             <button
               onClick={() => {
                 setIsSelectionMode(!isSelectionMode);
@@ -136,13 +147,13 @@ export const RecursiveOptionEditor: React.FC<{
       </div>
 
       {/* Select All Toggle */}
-      {isSelectionMode && options.length > 0 && (
+      {isSelectionMode && normalizedOptions.length > 0 && (
         <div className="flex items-center gap-2 pl-1 mb-2">
           <button
             onClick={toggleSelectAll}
             className="text-gray-400 hover:text-blue-600"
           >
-            {selectedIndices.size === options.length ? (
+            {selectedIndices.size === normalizedOptions.length ? (
               <CheckSquare size={18} />
             ) : (
               <Square size={18} />
@@ -154,7 +165,7 @@ export const RecursiveOptionEditor: React.FC<{
         </div>
       )}
 
-      {/* Bulk Paste UI (same as before) */}
+      {/* Bulk Paste UI */}
       {showBulkPaste && (
         <div className="bg-blue-50 p-3 rounded mb-3 border border-blue-200">
           <textarea
@@ -168,13 +179,13 @@ export const RecursiveOptionEditor: React.FC<{
               onClick={() => {
                 const lines = bulkText.split("\n").filter((l) => l.trim());
                 const newOpts = lines.map((l, i) => ({
-                  sequence: options.length + i + 1,
+                  sequence: normalizedOptions.length + i + 1,
                   label: l.split("|")[0],
                   text: l.split("|")[1] || l,
                   is_other: false,
                   sub_options: [],
                 }));
-                onChange([...options, ...newOpts]);
+                onChange([...normalizedOptions, ...newOpts]);
                 setShowBulkPaste(false);
                 setBulkText("");
               }}
@@ -194,10 +205,12 @@ export const RecursiveOptionEditor: React.FC<{
 
       {/* Option List */}
       <div className="space-y-1">
-        {options.map((opt, idx) => {
+        {normalizedOptions.map((opt, idx) => {
           const isSelected = selectedIndices.has(idx);
           const isExpanded = expandedIndices.has(idx);
           const canHaveChildren = level < MAX_NESTING_LEVEL;
+          const subOptions = getSubOptions(opt);
+          const hasSubOptions = subOptions.length > 0;
 
           return (
             <div
@@ -205,7 +218,7 @@ export const RecursiveOptionEditor: React.FC<{
               className={`rounded-md transition-colors ${isSelected ? "bg-red-50 border-red-100" : ""}`}
             >
               <div className="flex gap-2 items-center p-1 group">
-                {/* Selection Checkbox */}
+                {/* Selection Checkbox or Expand Button */}
                 {isSelectionMode ? (
                   <button
                     onClick={() => toggleSelect(idx)}
@@ -220,7 +233,10 @@ export const RecursiveOptionEditor: React.FC<{
                 ) : (
                   <button
                     onClick={() => toggleExpand(idx)}
-                    className={`p-1 rounded hover:bg-gray-100 text-gray-400 ${canHaveChildren && opt.sub_options.length > 0 ? "" : "invisible"}`}
+                    className={`p-1 rounded hover:bg-gray-100 text-gray-400 ${
+                      canHaveChildren && hasSubOptions ? "" : "invisible"
+                    }`}
+                    disabled={!canHaveChildren || !hasSubOptions}
                   >
                     {isExpanded ? (
                       <ChevronDown size={14} />
@@ -236,10 +252,12 @@ export const RecursiveOptionEditor: React.FC<{
 
                 <input
                   type="text"
-                  className={`border p-1 rounded text-sm w-28 font-mono ${isSelected ? "bg-red-50" : "bg-white"}`}
+                  className={`border p-1 rounded text-sm w-28 font-mono ${
+                    isSelected ? "bg-red-50" : "bg-white"
+                  }`}
                   value={opt.label}
                   onChange={(e) => {
-                    const newOpts = [...options];
+                    const newOpts = [...normalizedOptions];
                     newOpts[idx].label = e.target.value;
                     onChange(newOpts);
                   }}
@@ -247,10 +265,12 @@ export const RecursiveOptionEditor: React.FC<{
 
                 <input
                   type="text"
-                  className={`border p-1 rounded text-sm flex-1 ${isSelected ? "bg-red-50" : "bg-white"}`}
+                  className={`border p-1 rounded text-sm flex-1 ${
+                    isSelected ? "bg-red-50" : "bg-white"
+                  }`}
                   value={opt.text}
                   onChange={(e) => {
-                    const newOpts = [...options];
+                    const newOpts = [...normalizedOptions];
                     newOpts[idx].text = e.target.value;
                     onChange(newOpts);
                   }}
@@ -262,11 +282,11 @@ export const RecursiveOptionEditor: React.FC<{
                       <button
                         onClick={() => {
                           if (!isExpanded) toggleExpand(idx);
-                          const newOpts = [...options];
+                          const newOpts = [...normalizedOptions];
                           newOpts[idx].sub_options = [
-                            ...(newOpts[idx].sub_options || []),
+                            ...subOptions,
                             {
-                              sequence: 1,
+                              sequence: subOptions.length + 1,
                               text: "",
                               label: "",
                               is_other: false,
@@ -282,7 +302,7 @@ export const RecursiveOptionEditor: React.FC<{
                     )}
                     <button
                       onClick={() =>
-                        onChange(options.filter((_, i) => i !== idx))
+                        onChange(normalizedOptions.filter((_, i) => i !== idx))
                       }
                       className="p-1 text-red-400 hover:bg-red-50 rounded"
                     >
@@ -296,9 +316,9 @@ export const RecursiveOptionEditor: React.FC<{
               {isExpanded && !isSelectionMode && canHaveChildren && (
                 <RecursiveOptionEditor
                   level={level + 1}
-                  options={opt.sub_options || []}
+                  options={subOptions}
                   onChange={(newSubs) => {
-                    const newOpts = [...options];
+                    const newOpts = [...normalizedOptions];
                     newOpts[idx].sub_options = newSubs;
                     onChange(newOpts);
                   }}
@@ -313,9 +333,9 @@ export const RecursiveOptionEditor: React.FC<{
         <button
           onClick={() =>
             onChange([
-              ...options,
+              ...normalizedOptions,
               {
-                sequence: options.length + 1,
+                sequence: normalizedOptions.length + 1,
                 text: "",
                 label: "",
                 is_other: false,
@@ -331,4 +351,3 @@ export const RecursiveOptionEditor: React.FC<{
     </div>
   );
 };
-

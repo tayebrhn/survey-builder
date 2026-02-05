@@ -53,8 +53,8 @@ export interface SurveyExport {
     instructions: string;
     version: string;
     created: string; // ISO date string, e.g., "2025-08-12"
-    start_date: string; // Added
-    end_date: string;
+    start: string; // Added
+    end: string;
     is_active: boolean;
     language: string;
   };

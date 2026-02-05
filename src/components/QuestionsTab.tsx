@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus } from "lucide-react";
 import { QuestionEditor } from "./subs/QuestionEditor";
-import { useSurveyContext } from "../context";
+import { useSurveyContext } from "..";
 
 export const QuestionsTab: React.FC = () => {
   const { survey, addQuestion, updateQuestion, deleteQuestion } =

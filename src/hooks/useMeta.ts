@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { MetaResponse } from "../types/metaTypes";
+import type { MetaResponse } from "..";
 
 let cache: MetaResponse | null = null;
 

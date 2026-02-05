@@ -1,18 +1,52 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   SurveyExport,
   SurveyQuestion,
   SkipLogicRule,
   KeyChoice,
 } from "../types";
-import { initialSurveyState, createEmptyQuestion } from "../constants";
+import { createEmptyQuestion, initialSurveyState } from "..";
 
-export const useSurvey = () => {
+export const useSurvey = (surveyId?: string) => {
   const [survey, setSurvey] = useState<SurveyExport>(initialSurveyState);
+  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    if (!surveyId) return; // It's a new survey, do nothing
+
+    const fetchSurvey = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/surveys/${surveyId}/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (!response.ok) throw new Error("Failed to load survey");
+
+        const data = await response.json();
+        // Update state with fetched data
+        setSurvey(data);
+      } catch (err) {
+        console.error(err);
+        alert("Could not load survey data.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSurvey();
+  }, [surveyId]);
+
   const [isSaving, setIsSaving] = useState(false);
   const updateMetadata = (
     field: keyof SurveyExport["metadata"],
-    value: string|boolean,
+    value: string | boolean,
   ) => {
     setSurvey((prev) => ({
       ...prev,
@@ -163,44 +197,45 @@ export const useSurvey = () => {
   };
 
   const handleSave = async () => {
-    // 1. Start loading state
     setIsSaving(true);
+    // const token = localStorage.getItem("access_token");
+
+    // Determine URL and Method based on whether we are editing
+    const url = surveyId
+      ? `http://127.0.0.1:8000/api/surveys/${surveyId}/`
+      : "http://127.0.0.1:8000/api/surveys/";
+
+    const method = surveyId ? "PUT" : "POST";
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/surveys/", {
-        method: "POST",
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
-          // If your backend requires CSRF or Auth tokens, add them here:
-          // "X-CSRFToken": getCookie('csrftoken'),
+          // Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(survey),
       });
 
-      // 2. Check if the backend returned an error (e.g., 400 or 500)
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.detail ||
-            errorData.message ||
-            "Failed to save survey to backend.",
-        );
+        throw new Error(errorData.detail || "Failed to save survey.");
       }
 
-      // 3. Handle success
       const result = await response.json();
       console.log("Backend Response:", result);
-      alert("Survey created successfully!");
+      alert(
+        surveyId
+          ? "Survey updated successfully!"
+          : "Survey created successfully!",
+      );
     } catch (error: any) {
-      // 4. Handle network errors or thrown errors
       console.error("Save Error:", error);
       alert(`Error: ${error.message}`);
     } finally {
-      // 5. Reset loading state
       setIsSaving(false);
     }
   };
-
   return {
     survey,
     updateMetadata,
@@ -218,5 +253,6 @@ export const useSurvey = () => {
     removeSkipLogic,
     handleSave,
     isSaving,
+    isLoading,
   };
 };
