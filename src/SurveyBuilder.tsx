@@ -6,6 +6,7 @@ import {
   QuestionsTab,
   SettingsTab,
   SkipLogicTab,
+  SurveyImportButton,
   SurveySkeleton,
   useSurveyContext,
 } from ".";
@@ -14,8 +15,13 @@ import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
 type TabType = "settings" | "questions" | "logic" | "json";
 
 export default function SurveyBuilder() {
-  const { survey, handleSave, exportSurveyToJSON, isSaving, isLoading } =
-    useSurveyContext();
+  const {
+    survey,
+    handleSave,
+    exportSurveyToJSON,
+    isSaving,
+    isLoading,
+  } = useSurveyContext();
   const [activeTab, setActiveTab] = useState<TabType>("settings");
 
   // In your SurveyBuilder component, replace the loading condition:
@@ -35,6 +41,8 @@ export default function SurveyBuilder() {
             <p className="text-blue-100 text-sm">Builder v1.0</p>
           </div>
           <div className="flex gap-3">
+            <SurveyImportButton />
+
             <HeaderActionButton
               onClick={exportSurveyToJSON}
               disabled={isSaving || isLoading}

@@ -7,7 +7,7 @@ import { BrowserRouter } from "react-router-dom";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Toaster richColors position="top-right" />
+    <Toaster richColors position="top-center" />
     <BrowserRouter>
       <SurveyProvider>
         <SurveyBuilder />

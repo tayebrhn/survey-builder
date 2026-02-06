@@ -1,6 +1,7 @@
 export { default as SurveyBuilder } from "./SurveyBuilder";
 export { RecursiveOptionEditor } from "./components/subs/RecursiveOptionEditor";
 export { QuestionEditor } from "./components/subs/QuestionEditor";
+export { SurveyImportButton } from "./components/subs/SurveyImportButton";
 export { SettingsTab } from "./components/SettingsTab";
 export { QuestionsTab } from "./components/QuestionsTab";
 export { SkipLogicTab } from "./components/SkipLogicTab";

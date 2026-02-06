@@ -7,13 +7,162 @@ import type {
   SkipLogicRule,
   KeyChoice,
 } from "..";
-import { createEmptyQuestion, initialSurveyState } from "..";
+import {
+  createEmptyQuestion,
+  initialSurveyState,
+  MAX_FILE_SIZE_BYTES,
+  MAX_FILE_SIZE_MB,
+} from "..";
+
+const sanitizeSurvey = (survey: SurveyExport): SurveyExport => {
+  let optionSequence = 1; // 🔥 shared counter for options + suboptions
+
+  return {
+    ...survey,
+
+    id: undefined,
+
+    metadata: {
+      ...survey.metadata,
+      is_active: survey.metadata.is_active ?? false,
+      created: new Date().toISOString(),
+      version: survey.metadata?.version ?? "1.0",
+    },
+    skip_logic: survey.skip_logic ?? [],
+    question_categories: survey.question_categories ?? [],
+    questions: survey.questions.map((q, qIndex) => ({
+      ...q,
+      sequence_num: qIndex + 1,
+
+      options: Array.isArray(q.options)
+        ? q.options.map((opt) => {
+            const currentOptSequence = optionSequence++;
+
+            return {
+              ...opt,
+              sequence: currentOptSequence,
+
+              sub_options: Array.isArray(opt.sub_options)
+                ? opt.sub_options.map((sub) => {
+                    const currentSubSequence = optionSequence++;
+
+                    return {
+                      ...sub,
+                      sequence: currentSubSequence,
+                    };
+                  })
+                : [],
+            };
+          })
+        : [],
+    })),
+    key_choice: survey.key_choice ?? [],
+  };
+};
 
 export const useSurvey = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const surveyId = searchParams.get("surveyId");
   const [survey, setSurvey] = useState<SurveyExport>(initialSurveyState);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!surveyId) return; // It's a new survey, do nothing
+
+    const fetchSurvey = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem("access_token");
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/surveys/${surveyId}/`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (!response.ok) throw new Error("Failed to load survey");
+
+        const data = await response.json();
+        // Update state with fetched data
+        setSurvey(data);
+      } catch (err) {
+        console.error(err);
+        toast.error("Could not load survey data. refresh again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSurvey();
+  }, [surveyId]);
+
+  /* ----------------------------------
+     Import survey from JSON (file)
+  ---------------------------------- */
+
+  const importSurveyFromJSON = (file: File) => {
+    return new Promise<void>((resolve, reject) => {
+      /* ---------- File validation ---------- */
+
+      if (!file) {
+        return reject(new Error("No file selected"));
+      }
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        return reject(
+          new Error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit`),
+        );
+      }
+
+      if (
+        file.type !== "application/json" &&
+        !file.name.toLowerCase().endsWith(".json")
+      ) {
+        return reject(new Error("Only JSON files are allowed"));
+      }
+
+      const reader = new FileReader();
+
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+      };
+
+      reader.onload = () => {
+        try {
+          const raw = reader.result as string;
+          const parsed = JSON.parse(raw);
+
+          /* ---------- Structural validation ---------- */
+
+          if (
+            typeof parsed !== "object" ||
+            !parsed.metadata ||
+            !Array.isArray(parsed.questions)
+          ) {
+            throw new Error("Invalid survey format");
+          }
+
+          /* ---------- Normalize survey ---------- */
+
+          const normalizedSurvey = sanitizeSurvey(parsed);
+
+          setSurvey(normalizedSurvey);
+          setSearchParams({});
+          resolve();
+        } catch (err) {
+          reject(
+            err instanceof Error ? err : new Error("Invalid JSON content"),
+          );
+        }
+      };
+
+      reader.readAsText(file);
+    });
+  };
 
   /* ----------------------------------
      Export survey to JSON (download)
@@ -58,40 +207,6 @@ export const useSurvey = () => {
     }
   };
 
-  useEffect(() => {
-    if (!surveyId) return; // It's a new survey, do nothing
-
-    const fetchSurvey = async () => {
-      setIsLoading(true);
-      try {
-        const token = localStorage.getItem("access_token");
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/surveys/${surveyId}/`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
-
-        if (!response.ok) throw new Error("Failed to load survey");
-
-        const data = await response.json();
-        // Update state with fetched data
-        setSurvey(data);
-      } catch (err) {
-        console.error(err);
-        toast.error("Could not load survey data. refresh again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSurvey();
-  }, [surveyId]);
-
-  const [isSaving, setIsSaving] = useState(false);
   const updateMetadata = (
     field: keyof SurveyExport["metadata"],
     value: string | boolean,
@@ -308,6 +423,7 @@ export const useSurvey = () => {
     updateSkipLogic,
     removeSkipLogic,
     handleSave,
+    importSurveyFromJSON,
     exportSurveyToJSON,
     isSaving,
     isLoading,

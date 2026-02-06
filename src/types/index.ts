@@ -58,10 +58,10 @@ export interface SurveyExport {
     is_active: boolean;
     language: string;
   };
-  questions: SurveyQuestion[];
-  question_categories?: QuestionCategory[];
-  key_choice: KeyChoice[];
   skip_logic?: SkipLogicRule[]; // Rules where this question is the TARGET
+  question_categories?: QuestionCategory[];
+  questions: SurveyQuestion[];
+  key_choice: KeyChoice[];
 }
 
 type QuestionTypeConfig = {
