@@ -9,8 +9,8 @@ const SurveyContext = createContext<ReturnType<typeof useSurvey> | null>(null);
 export const SurveyProvider: React.FC<{
   surveyId?: string;
   children: React.ReactNode;
-}> = ({ surveyId, children }) => {
-  const surveyState = useSurvey(surveyId);
+}> = ({ children }) => {
+  const surveyState = useSurvey();
 
   return (
     <SurveyContext.Provider value={surveyState}>

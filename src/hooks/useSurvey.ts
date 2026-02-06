@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type {
   SurveyExport,
@@ -8,7 +9,9 @@ import type {
 } from "..";
 import { createEmptyQuestion, initialSurveyState } from "..";
 
-export const useSurvey = (surveyId?: string) => {
+export const useSurvey = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const surveyId = searchParams.get("surveyId");
   const [survey, setSurvey] = useState<SurveyExport>(initialSurveyState);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -240,24 +243,21 @@ export const useSurvey = (surveyId?: string) => {
     const newLogic = (survey.skip_logic || []).filter((_, i) => i !== index);
     setSurvey({ ...survey, skip_logic: newLogic });
   };
-
   const handleSave = async () => {
     setIsSaving(true);
-    // const token = localStorage.getItem("access_token");
 
-    // Determine URL and Method based on whether we are editing
-    const url = surveyId
+    const isEdit = Boolean(surveyId);
+    const url = isEdit
       ? `http://127.0.0.1:8000/api/surveys/${surveyId}/`
       : "http://127.0.0.1:8000/api/surveys/";
 
-    const method = surveyId ? "PUT" : "POST";
+    const method = isEdit ? "PUT" : "POST";
 
     try {
       const response = await fetch(url, {
-        method: method,
+        method,
         headers: {
           "Content-Type": "application/json",
-          // Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(survey),
       });
@@ -267,20 +267,31 @@ export const useSurvey = (surveyId?: string) => {
         throw new Error(errorData.detail || "Failed to save survey.");
       }
 
-      const result = await response.json();
-      console.log("Backend Response:", result);
+      const savedSurvey = await response.json();
+
+      // 🔁 RESYNC: backend is source of truth
+      setSurvey(savedSurvey);
+
+      // 🆕 If it was a create, sync the ID (route or state)
+      if (!isEdit && savedSurvey.id) {
+        // If you use react-router
+        // navigate(`/surveys/${savedSurvey.id}`);
+        setSearchParams({ surveyId: savedSurvey.id });
+      }
+
       toast.success(
-        surveyId
-          ? "Survey updated successfully!"
-          : "Survey created successfully!",
+        isEdit
+          ? "Survey updated and synced successfully!"
+          : "Survey created and synced successfully!",
       );
     } catch (error: any) {
       console.error("Save Error:", error);
-      toast.error(`Error: ${error.message}`);
+      toast.error(error.message || "Failed to save survey.");
     } finally {
       setIsSaving(false);
     }
   };
+
   return {
     survey,
     updateMetadata,
