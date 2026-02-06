@@ -35,7 +35,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   const questionTypes = meta?.question_types || [];
 
   const typeMeta = questionTypes?.find((t) => t.value === question.type);
-  const requiresOptions = typeMeta?.has_options ?? false;
+  const requiresOptionsDep = typeMeta?.has_options ?? false;
 
   return (
     <div
@@ -169,64 +169,68 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
             </div>
           </div>
           {/* --- NEW: Dependency Field --- */}
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
-              Dependency (Parent Question)
-            </label>
-            <div className="flex gap-4 items-center">
-              <select
-                className="flex-1 border border-gray-300 rounded p-1.5 text-sm bg-white"
-                value={question.depends_on || ""}
-                onChange={(e) =>
-                  onUpdate({
-                    depends_on: e.target.value
-                      ? Number(e.target.value)
-                      : undefined,
-                  })
-                }
-              >
-                <option value="">-- No Dependency (Always Show) --</option>
-                {questions
-                  .filter((parentQ) => {
-                    const parentMeta = questionTypes.find(
-                      (t) => t.value === parentQ.type,
-                    );
-
-                    return (
-                      parentQ.sequence_num < question.sequence_num &&
-                      parentMeta?.has_options
-                    );
-                  })
-                  .map((parentQ) => (
-                    <option
-                      key={parentQ.sequence_num}
-                      value={parentQ.sequence_num}
+          {/* Options Editor */}
+          {requiresOptionsDep && (
+            <>
+              {question.sequence_num !== 1 && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
+                    Dependency (Parent Question)
+                  </label>
+                  <div className="flex gap-4 items-center">
+                    <select
+                      className="flex-1 border border-gray-300 rounded p-1.5 text-sm bg-white"
+                      value={question.depends_on || undefined}
+                      onChange={(e) =>
+                        onUpdate({
+                          depends_on: e.target.value
+                            ? Number(e.target.value)
+                            : undefined,
+                        })
+                      }
                     >
-                      Q{parentQ.sequence_num}:{" "}
-                      {parentQ.question.substring(0, 40)}
-                      {parentQ.question.length > 40 ? "..." : ""}
-                    </option>
-                  ))}
-              </select>
+                      <option value="">-- No Dependency --</option>
+                      {questions
+                        .filter((parentQ) => {
+                          const parentMeta = questionTypes.find(
+                            (t) => t.value === parentQ.type,
+                          );
 
-              {/* Visual Indicator if Dependency is Set */}
-              {question.depends_on && (
-                <div className="text-xs text-yellow-700 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                  Linked to Q{question.depends_on}
+                          return (
+                            parentQ.sequence_num < question.sequence_num &&
+                            parentMeta?.has_options
+                          );
+                        })
+                        .map((parentQ) => (
+                          <option
+                            key={parentQ.sequence_num}
+                            value={parentQ.sequence_num}
+                          >
+                            Q{parentQ.sequence_num}:{" "}
+                            {parentQ.question.substring(0, 40)}
+                            {parentQ.question.length > 40 ? "..." : ""}
+                          </option>
+                        ))}
+                    </select>
+
+                    {/* Visual Indicator if Dependency is Set */}
+                    {question.depends_on && (
+                      <div className="text-xs text-yellow-700 flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                        Linked to Q{question.depends_on}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-          {/* Options Editor */}
-          {requiresOptions && (
-            <div className="rounded-lg border border-dashed border-gray-300 px-4 py-2">
-              <RecursiveOptionEditor
-                options={question.options}
-                // maxOptions={typeMeta?.max_options}
-                onChange={(newOptions) => onUpdate({ options: newOptions })}
-              />
-            </div>
+              <div className="rounded-lg border border-dashed border-gray-300 px-4 py-2">
+                <RecursiveOptionEditor
+                  options={question.options}
+                  parentQuestionSN={question.depends_on}
+                  onChange={(newOptions) => onUpdate({ options: newOptions })}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
