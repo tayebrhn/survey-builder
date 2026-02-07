@@ -80,94 +80,115 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
             </button>
           </div>
 
-          {/* Configuration */}
-          <div className="rounded-lg bg-gray-50 p-4 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Question Type */}
-              <div>
-                <label className={labelBase}>Type</label>
-                <select
-                  className={inputBase}
-                  value={question.type}
-                  onChange={(e) =>
-                    onUpdate({
-                      type: e.target.value as QuestionType,
-                      // reset options if new type doesn't support them
-                      options: questionTypes.find(
-                        (t) => t.value === e.target.value,
-                      )?.has_options
-                        ? question.options
-                        : [],
-                    })
-                  }
-                  disabled={loading}
-                >
-                  {questionTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        {/* Configuration Section */}
+<div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+  <div className="bg-gray-50/50 border-b border-gray-100 px-4 py-2">
+    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Question Settings</span>
+  </div>
 
-              {/* Category */}
-              <div>
-                <label className={labelBase}>Category</label>
-                <select
-                  className={inputBase}
-                  value={question.category}
-                  onChange={(e) =>
-                    onUpdate({ category: Number(e.target.value) })
-                  }
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.cat_number} value={cat.cat_number}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+  <div className="p-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      
+      {/* 1. Question Type */}
+      <div className="space-y-1.5">
+        <label className={`${labelBase} flex items-center gap-2`}>
+          Type
+        </label>
+        <select
+          className={`${inputBase} w-full`}
+          value={question.type}
+          onChange={(e) =>
+            onUpdate({
+              type: e.target.value as QuestionType,
+              options: questionTypes.find((t) => t.value === e.target.value)?.has_options
+                ? question.options
+                : [],
+            })
+          }
+          disabled={loading}
+        >
+          {questionTypes.map((type) => (
+            <option key={type.value} value={type.value}>{type.label}</option>
+          ))}
+        </select>
+      </div>
 
-              {/* Flags */}
-              <div className="flex flex-col justify-end gap-2">
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={question.constraints?.required}
-                    onChange={(e) =>
-                      onUpdate({
-                        constraints: {
-                          ...question.constraints,
-                          required: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600
-                               focus:ring-indigo-500"
-                  />
-                  Required
-                </label>
+      {/* 2. Category */}
+      <div className="space-y-1.5">
+        <label className={labelBase}>Category</label>
+        <select
+          className={`${inputBase} w-full`}
+          value={question.category}
+          onChange={(e) => onUpdate({ category: Number(e.target.value) })}
+        >
+          {categories.map((cat) => (
+            <option key={cat.cat_number} value={cat.cat_number}>{cat.name}</option>
+          ))}
+        </select>
+      </div>
 
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={question.constraints?.verifiable}
-                    onChange={(e) =>
-                      onUpdate({
-                        constraints: {
-                          ...question.constraints,
-                          verifiable: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600
-                               focus:ring-indigo-500"
-                  />
-                  Verifiable
-                </label>
-              </div>
+      {/* 3. Input Length Constraints */}
+      {!requiresOptionsDep && question.type !== "rating" ? (
+        <div className="space-y-1.5">
+          <label className={labelBase}>Length Constraints</label>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">MIN</span>
+              <input
+                type="number"
+                className={`${inputBase} pl-9 w-full text-right`}
+                value={question.constraints?.min_length || 0}
+                onChange={(e) => onUpdate({
+                  constraints: { ...question.constraints, min_length: Number(e.target.value) }
+                })}
+              />
+            </div>
+            <span className="text-gray-300">—</span>
+            <div className="relative flex-1">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">MAX</span>
+              <input
+                type="number"
+                className={`${inputBase} pl-9 w-full text-right`}
+                value={question.constraints?.max_length || 0}
+                onChange={(e) => onUpdate({
+                  constraints: { ...question.constraints, max_length: Number(e.target.value) }
+                })}
+              />
             </div>
           </div>
+        </div>
+      ) : (
+        <div className="hidden lg:block" /> /* Spacer for alignment */
+      )}
+
+      {/* 4. Behavioral Flags */}
+      <div className="flex flex-col gap-2.5 pt-6 lg:pt-7 lg:pl-4">
+        {[
+          { key: 'required', label: 'Required' },
+          { key: 'verifiable', label: 'Verifiable' },
+          { key: 'hidden', label: 'Hidden' }
+        ].map((flag) => (
+          <label key={flag.key} className="group flex items-center gap-3 cursor-pointer">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                checked={!!(question.constraints as any)?.[flag.key]}
+                onChange={(e) => onUpdate({
+                  constraints: { ...question.constraints, [flag.key]: e.target.checked }
+                })}
+                className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer"
+              />
+            </div>
+            <span className="text-xs font-medium text-gray-600 group-hover:text-indigo-600 transition-colors">
+              {flag.label}
+            </span>
+          </label>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
           {/* --- NEW: Dependency Field --- */}
           {/* Options Editor */}
           {requiresOptionsDep && (

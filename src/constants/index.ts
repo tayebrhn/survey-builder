@@ -18,7 +18,7 @@ export const createEmptyQuestion = (
   type: "",
   question: "",
   category: catId,
-  constraints: { verifiable: false, required: true },
+  constraints: {hidden:false, verifiable: false, required: true },
   options: [],
 });
 

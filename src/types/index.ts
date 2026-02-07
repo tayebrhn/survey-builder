@@ -27,6 +27,7 @@ export interface SurveyQuestion {
   placeholder?: string;
   scale?: string;
   constraints: {
+    hidden:boolean;
     verifiable: boolean;
     required: boolean;
     min_length?: number;

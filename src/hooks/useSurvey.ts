@@ -15,7 +15,7 @@ import {
 } from "..";
 
 const sanitizeSurvey = (survey: SurveyExport): SurveyExport => {
-  let optionSequence = 1; // 🔥 shared counter for options + suboptions
+  // let optionSequence = 1; // 🔥 shared counter for options + suboptions
 
   return {
     ...survey,
@@ -32,19 +32,19 @@ const sanitizeSurvey = (survey: SurveyExport): SurveyExport => {
     question_categories: survey.question_categories ?? [],
     questions: survey.questions.map((q, qIndex) => ({
       ...q,
-      sequence_num: qIndex + 1,
-
+      sequence_num: ++qIndex,
+      constraints: { ...q.constraints, hidden: q.constraints.hidden || false },
       options: Array.isArray(q.options)
-        ? q.options.map((opt) => {
-            const currentOptSequence = optionSequence++;
+        ? q.options.map((opt, opIndex) => {
+            const currentOptSequence = ++opIndex;
 
             return {
               ...opt,
               sequence: currentOptSequence,
 
               sub_options: Array.isArray(opt.sub_options)
-                ? opt.sub_options.map((sub) => {
-                    const currentSubSequence = optionSequence++;
+                ? opt.sub_options.map((sub, subIndex) => {
+                    const currentSubSequence = ++subIndex;
 
                     return {
                       ...sub,

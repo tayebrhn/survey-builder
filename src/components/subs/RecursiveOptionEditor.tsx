@@ -30,6 +30,16 @@ export const RecursiveOptionEditor: React.FC<{
   const [showBulkPaste, setShowBulkPaste] = useState(false);
   const [bulkText, setBulkText] = useState("");
 
+  // Bulk Selection State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
+    new Set(),
+  );
+
+  if (!options) {
+    return <></>;
+  }
+
   // Resolve Parent Options
   let parentOptions: QuestionOption[] | undefined;
   if (parentQuestionSN) {
@@ -37,12 +47,6 @@ export const RecursiveOptionEditor: React.FC<{
       (parentQ) => parentQ.sequence_num === parentQuestionSN,
     )?.options;
   }
-
-  // Bulk Selection State
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
-    new Set(),
-  );
 
   const toggleExpand = (index: number) => {
     const newSet = new Set(expandedIndices);
@@ -118,20 +122,35 @@ export const RecursiveOptionEditor: React.FC<{
             Level {level} Options ({normalizedOptions.length})
           </h4>
 
-          {isRootExpanded && normalizedOptions.length > 0 && (
-            <button
-              onClick={() => {
-                setIsSelectionMode(!isSelectionMode);
-                setSelectedIndices(new Set());
-              }}
-              className={`ml-2 text-xs px-2 py-1 rounded border transition-colors ${
-                isSelectionMode
-                  ? "bg-gray-800 text-white border-black"
-                  : "text-gray-600 border-gray-300 hover:bg-white"
-              }`}
-            >
-              {isSelectionMode ? "Exit" : "Select"}
-            </button>
+          {/* ... Header Actions Section ... */}
+          {isRootExpanded && (
+            <div className="flex gap-2">
+              {isSelectionMode && selectedIndices.size > 0 ? (
+                <button
+                  onClick={deleteSelected}
+                  className="text-xs bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 hover:bg-red-700"
+                >
+                  <Trash2 size={12} /> Delete ({selectedIndices.size})
+                </button>
+              ) : (
+                /* REMOVED: level === 0 constraint so bulk paste works for sub-options */
+                <button
+                  onClick={() => setShowBulkPaste(!showBulkPaste)}
+                  className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+                >
+                  <Clipboard size={12} /> Bulk Paste
+                </button>
+              )}
+
+              {isSelectionMode && (
+                <button
+                  onClick={clearAll}
+                  className="text-xs text-red-500 hover:underline px-2"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -146,14 +165,7 @@ export const RecursiveOptionEditor: React.FC<{
                 <Trash2 size={12} /> Delete ({selectedIndices.size})
               </button>
             ) : (
-              level === 0 && (
-                <button
-                  onClick={() => setShowBulkPaste(!showBulkPaste)}
-                  className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded"
-                >
-                  <Clipboard size={12} /> Bulk Paste
-                </button>
-              )
+              <></>
             )}
 
             {isSelectionMode && (
@@ -192,42 +204,58 @@ export const RecursiveOptionEditor: React.FC<{
 
           {/* Bulk Paste UI */}
           {showBulkPaste && (
-            <div className="bg-blue-50 p-3 rounded mb-3 border border-blue-200">
+            <div className="bg-blue-50 p-3 rounded mb-3 border border-blue-200 shadow-sm animate-in zoom-in-95 duration-150">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] font-bold text-blue-700 uppercase">
+                  Bulk Add Level {level} Items
+                </span>
+                <span className="text-[10px] text-blue-400 font-mono">
+                  Format: LABEL|Text
+                </span>
+              </div>
               <textarea
-                className="w-full border p-2 text-xs h-24 font-mono mb-2"
+                className="w-full border border-blue-200 p-2 text-xs h-28 font-mono mb-2 rounded focus:ring-2 focus:ring-blue-300 outline-none"
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                placeholder="LABEL|Text (one per line)"
+                placeholder="A|Option One&#10;B|Option Two&#10;Option Three (No label)"
+                autoFocus
               />
               <div className="flex gap-2">
                 <button
                   onClick={() => {
                     const lines = bulkText.split("\n").filter((l) => l.trim());
-                    const newOpts = lines.map((l, i) => ({
-                      sequence: normalizedOptions.length + i + 1,
-                      label: l.split("|")[0],
-                      text: l.split("|")[1] || l,
-                      is_other: false,
-                      sub_options: [],
-                    }));
+                    const newOpts = lines.map((l, i) => {
+                      const parts = l.split("|");
+                      return {
+                        sequence: normalizedOptions.length + i + 1,
+                        label: parts.length > 1 ? parts[0].trim() : "",
+                        text:
+                          parts.length > 1 ? parts[1].trim() : parts[0].trim(),
+                        is_other: false,
+                        sub_options: [],
+                      };
+                    });
                     onChange([...normalizedOptions, ...newOpts]);
                     setShowBulkPaste(false);
                     setBulkText("");
                   }}
-                  className="bg-blue-600 text-white text-xs px-3 py-1 rounded"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded font-medium shadow-sm transition-colors"
                 >
-                  Add Items
+                  Add {bulkText.split("\n").filter((l) => l.trim()).length}{" "}
+                  Items
                 </button>
                 <button
-                  onClick={() => setShowBulkPaste(false)}
-                  className="text-xs text-gray-500"
+                  onClick={() => {
+                    setShowBulkPaste(false);
+                    setBulkText("");
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2"
                 >
                   Cancel
                 </button>
               </div>
             </div>
           )}
-
           {/* Option List */}
           <div className="space-y-1">
             {normalizedOptions.map((opt, idx) => {
@@ -320,7 +348,7 @@ export const RecursiveOptionEditor: React.FC<{
                                 ? "bg-blue-50 text-blue-800 border-blue-200"
                                 : "bg-white text-gray-500"
                             }`}
-                            value={opt.dependency_option || ""}
+                            value={opt.dependency_option || undefined}
                             onChange={(e) => {
                               const newOpts = [...normalizedOptions];
                               newOpts[idx] = {
@@ -329,6 +357,8 @@ export const RecursiveOptionEditor: React.FC<{
                                   ? Number(e.target.value)
                                   : undefined,
                               };
+                              console.log(e.target.value)
+                              console.log(opt.dependency_option)
                               onChange(newOpts);
                             }}
                           >
