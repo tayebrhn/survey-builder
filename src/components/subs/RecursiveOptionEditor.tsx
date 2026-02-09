@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Plus,
   Trash2,
@@ -21,9 +21,8 @@ export const RecursiveOptionEditor: React.FC<{
 }> = ({ options, parentQuestionSN, onChange, level = 0 }) => {
   const { survey } = useSurveyContext();
 
-  // --- NEW: Root Collapse State ---
+  // --- State ---
   const [isRootExpanded, setIsRootExpanded] = useState(false);
-
   const [expandedIndices, setExpandedIndices] = useState<Set<number>>(
     new Set(),
   );
@@ -36,17 +35,37 @@ export const RecursiveOptionEditor: React.FC<{
     new Set(),
   );
 
+  // ---------------------------------------------------------------------------
+  // OPTIMIZATION 1: Memoize Parent Options Lookup
+  // ---------------------------------------------------------------------------
+  // Prevents searching through the entire survey question array on every render.
+  // Only recalculates if the survey data or parent ID changes.
+  const parentOptions = useMemo(() => {
+    if (!parentQuestionSN) return undefined;
+    return survey.questions.find(
+      (parentQ) => parentQ.sequence_num === parentQuestionSN,
+    )?.options;
+  }, [survey.questions, parentQuestionSN]);
+
+  // ---------------------------------------------------------------------------
+  // OPTIMIZATION 2: Memoize Option Normalization
+  // ---------------------------------------------------------------------------
+  // Crucial: Ensures that 'normalizedOptions' keeps stable object references
+  // between renders (e.g., when toggling 'isRootExpanded' or typing in bulk paste).
+  // Without this, .map() creates new objects every time, forcing all children to re-render.
+  const normalizedOptions = useMemo(() => {
+    if (!options) return [];
+    return options.map((opt) => ({
+      ...opt,
+      sub_options: opt.sub_options || [],
+    }));
+  }, [options]);
+
   if (!options) {
     return <></>;
   }
 
-  // Resolve Parent Options
-  let parentOptions: QuestionOption[] | undefined;
-  if (parentQuestionSN) {
-    parentOptions = survey.questions.find(
-      (parentQ) => parentQ.sequence_num === parentQuestionSN,
-    )?.options;
-  }
+  // --- Handlers ---
 
   const toggleExpand = (index: number) => {
     const newSet = new Set(expandedIndices);
@@ -71,6 +90,7 @@ export const RecursiveOptionEditor: React.FC<{
   const deleteSelected = () => {
     if (window.confirm(`Delete ${selectedIndices.size} items?`)) {
       const newOptions = options.filter((_, i) => !selectedIndices.has(i));
+      // Resequence remaining items
       const resequenced = newOptions.map((opt, i) => ({
         ...opt,
         sequence: i + 1,
@@ -87,14 +107,6 @@ export const RecursiveOptionEditor: React.FC<{
       setIsSelectionMode(false);
     }
   };
-
-  const getSubOptions = (opt: QuestionOption): QuestionOption[] =>
-    opt.sub_options || [];
-
-  const normalizedOptions = options.map((opt) => ({
-    ...opt,
-    sub_options: getSubOptions(opt),
-  }));
 
   return (
     <div
@@ -133,7 +145,6 @@ export const RecursiveOptionEditor: React.FC<{
                   <Trash2 size={12} /> Delete ({selectedIndices.size})
                 </button>
               ) : (
-                /* REMOVED: level === 0 constraint so bulk paste works for sub-options */
                 <button
                   onClick={() => setShowBulkPaste(!showBulkPaste)}
                   className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
@@ -154,29 +165,14 @@ export const RecursiveOptionEditor: React.FC<{
           )}
         </div>
 
-        {/* Header Actions (Only visible if expanded or specific conditions met) */}
-        {isRootExpanded && (
-          <div className="flex gap-2">
-            {isSelectionMode && selectedIndices.size > 0 ? (
-              <button
-                onClick={deleteSelected}
-                className="text-xs bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 hover:bg-red-700"
-              >
-                <Trash2 size={12} /> Delete ({selectedIndices.size})
-              </button>
-            ) : (
-              <></>
-            )}
-
-            {isSelectionMode && (
-              <button
-                onClick={clearAll}
-                className="text-xs text-red-500 hover:underline px-2"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
+        {/* Selection Mode Toggle */}
+        {isRootExpanded && normalizedOptions.length > 0 && !isSelectionMode && (
+          <button
+            onClick={() => setIsSelectionMode(true)}
+            className="text-xs text-gray-400 hover:text-blue-600 px-2"
+          >
+            Select
+          </button>
         )}
       </div>
 
@@ -256,13 +252,15 @@ export const RecursiveOptionEditor: React.FC<{
               </div>
             </div>
           )}
+
           {/* Option List */}
           <div className="space-y-1">
             {normalizedOptions.map((opt, idx) => {
               const isSelected = selectedIndices.has(idx);
               const isExpanded = expandedIndices.has(idx);
               const canHaveChildren = level < MAX_NESTING_LEVEL;
-              const subOptions = getSubOptions(opt);
+              // No need to call getSubOptions helper, we use normalized data
+              const subOptions = opt.sub_options || [];
               const hasSubOptions = subOptions.length > 0;
 
               return (
@@ -348,7 +346,7 @@ export const RecursiveOptionEditor: React.FC<{
                                 ? "bg-blue-50 text-blue-800 border-blue-200"
                                 : "bg-white text-gray-500"
                             }`}
-                            value={opt.dependency_option || undefined}
+                            value={opt.dependency_option || ""}
                             onChange={(e) => {
                               const newOpts = [...normalizedOptions];
                               newOpts[idx] = {
@@ -357,8 +355,6 @@ export const RecursiveOptionEditor: React.FC<{
                                   ? Number(e.target.value)
                                   : undefined,
                               };
-                              console.log(e.target.value)
-                              console.log(opt.dependency_option)
                               onChange(newOpts);
                             }}
                           >

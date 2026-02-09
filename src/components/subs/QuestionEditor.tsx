@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import { GripVertical, Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../..";
 import { RecursiveOptionEditor } from "../..";
@@ -32,10 +32,39 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onDelete,
 }) => {
   const { meta, loading } = useMetaContext();
-  const questionTypes = meta?.question_types || [];
+  const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
 
-  const typeMeta = questionTypes?.find((t) => t.value === question.type);
+  // OPTIMIZATION 1: Memoize Metadata Lookup
+  // Prevents array searching on every keystroke
+  const typeMeta = useMemo(
+    () => questionTypes?.find((t) => t.value === question.type),
+    [questionTypes, question.type],
+  );
+
   const requiresOptionsDep = typeMeta?.has_options ?? false;
+
+  // OPTIMIZATION 2: Memoize Eligible Parents Calculation
+  // This was likely the biggest bottleneck. Previously, it filtered through
+  // ALL questions on every render. Now it recalculates only when list changes.
+  const eligibleParents = useMemo(() => {
+    return questions.filter((parentQ) => {
+      // 1. Must be before current question
+      if (parentQ.sequence_num >= question.sequence_num) return false;
+
+      // 2. Parent must have options (to be a dependency source)
+      const parentMeta = questionTypes.find((t) => t.value === parentQ.type);
+      return parentMeta?.has_options;
+    });
+  }, [questions, question.sequence_num, questionTypes]);
+
+  // OPTIMIZATION 3: Stable Handler for Child Component
+  // Crucial: This ensures RecursiveOptionEditor doesn't re-render unnecessarily
+  const handleOptionsChange = useCallback(
+    (newOptions: any[]) => {
+      onUpdate({ options: newOptions });
+    },
+    [onUpdate],
+  );
 
   return (
     <div
@@ -53,7 +82,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
           <div className="flex items-start gap-3">
             <span
               className="inline-flex items-center px-3 py-1 rounded-full
-                         bg-indigo-50 text-indigo-700 text-sm font-bold shrink-0"
+                          bg-indigo-50 text-indigo-700 text-sm font-bold shrink-0"
             >
               Q{question.sequence_num}
             </span>
@@ -80,117 +109,147 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
             </button>
           </div>
 
-        {/* Configuration Section */}
-<div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
-  <div className="bg-gray-50/50 border-b border-gray-100 px-4 py-2">
-    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Question Settings</span>
-  </div>
-
-  <div className="p-4">
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      
-      {/* 1. Question Type */}
-      <div className="space-y-1.5">
-        <label className={`${labelBase} flex items-center gap-2`}>
-          Type
-        </label>
-        <select
-          className={`${inputBase} w-full`}
-          value={question.type}
-          onChange={(e) =>
-            onUpdate({
-              type: e.target.value as QuestionType,
-              options: questionTypes.find((t) => t.value === e.target.value)?.has_options
-                ? question.options
-                : [],
-            })
-          }
-          disabled={loading}
-        >
-          {questionTypes.map((type) => (
-            <option key={type.value} value={type.value}>{type.label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* 2. Category */}
-      <div className="space-y-1.5">
-        <label className={labelBase}>Category</label>
-        <select
-          className={`${inputBase} w-full`}
-          value={question.category}
-          onChange={(e) => onUpdate({ category: Number(e.target.value) })}
-        >
-          {categories.map((cat) => (
-            <option key={cat.cat_number} value={cat.cat_number}>{cat.name}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* 3. Input Length Constraints */}
-      {!requiresOptionsDep && question.type !== "rating" ? (
-        <div className="space-y-1.5">
-          <label className={labelBase}>Length Constraints</label>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">MIN</span>
-              <input
-                type="number"
-                className={`${inputBase} pl-9 w-full text-right`}
-                value={question.constraints?.min_length || 0}
-                onChange={(e) => onUpdate({
-                  constraints: { ...question.constraints, min_length: Number(e.target.value) }
-                })}
-              />
+          {/* Configuration Section */}
+          <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-gray-50/50 border-b border-gray-100 px-4 py-2">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                Question Settings
+              </span>
             </div>
-            <span className="text-gray-300">—</span>
-            <div className="relative flex-1">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">MAX</span>
-              <input
-                type="number"
-                className={`${inputBase} pl-9 w-full text-right`}
-                value={question.constraints?.max_length || 0}
-                onChange={(e) => onUpdate({
-                  constraints: { ...question.constraints, max_length: Number(e.target.value) }
-                })}
-              />
+
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* 1. Question Type */}
+                <div className="space-y-1.5">
+                  <label className={`${labelBase} flex items-center gap-2`}>
+                    Type
+                  </label>
+                  <select
+                    className={`${inputBase} w-full`}
+                    value={question.type}
+                    onChange={(e) =>
+                      onUpdate({
+                        type: e.target.value as QuestionType,
+                        options: questionTypes.find(
+                          (t) => t.value === e.target.value,
+                        )?.has_options
+                          ? question.options
+                          : [],
+                      })
+                    }
+                    disabled={loading}
+                  >
+                    {questionTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Category */}
+                <div className="space-y-1.5">
+                  <label className={labelBase}>Category</label>
+                  <select
+                    className={`${inputBase} w-full`}
+                    value={question.category}
+                    onChange={(e) =>
+                      onUpdate({ category: Number(e.target.value) })
+                    }
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat.cat_number} value={cat.cat_number}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Input Length Constraints */}
+                {!requiresOptionsDep && question.type !== "rating" ? (
+                  <div className="space-y-1.5">
+                    <label className={labelBase}>Length Constraints</label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">
+                          MIN
+                        </span>
+                        <input
+                          type="number"
+                          className={`${inputBase} pl-9 w-full text-right`}
+                          value={question.constraints?.min_length || 0}
+                          onChange={(e) =>
+                            onUpdate({
+                              constraints: {
+                                ...question.constraints,
+                                min_length: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <span className="text-gray-300">—</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">
+                          MAX
+                        </span>
+                        <input
+                          type="number"
+                          className={`${inputBase} pl-9 w-full text-right`}
+                          value={question.constraints?.max_length || 0}
+                          onChange={(e) =>
+                            onUpdate({
+                              constraints: {
+                                ...question.constraints,
+                                max_length: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="hidden lg:block" /> /* Spacer for alignment */
+                )}
+
+                {/* 4. Behavioral Flags */}
+                <div className="flex flex-col gap-2.5 pt-6 lg:pt-7 lg:pl-4">
+                  {[
+                    { key: "required", label: "Required" },
+                    { key: "verifiable", label: "Verifiable" },
+                    { key: "hidden", label: "Hidden" },
+                  ].map((flag) => (
+                    <label
+                      key={flag.key}
+                      className="group flex items-center gap-3 cursor-pointer"
+                    >
+                      <div className="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={!!(question.constraints as any)?.[flag.key]}
+                          onChange={(e) =>
+                            onUpdate({
+                              constraints: {
+                                ...question.constraints,
+                                [flag.key]: e.target.checked,
+                              },
+                            })
+                          }
+                          className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer"
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-gray-600 group-hover:text-indigo-600 transition-colors">
+                        {flag.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="hidden lg:block" /> /* Spacer for alignment */
-      )}
 
-      {/* 4. Behavioral Flags */}
-      <div className="flex flex-col gap-2.5 pt-6 lg:pt-7 lg:pl-4">
-        {[
-          { key: 'required', label: 'Required' },
-          { key: 'verifiable', label: 'Verifiable' },
-          { key: 'hidden', label: 'Hidden' }
-        ].map((flag) => (
-          <label key={flag.key} className="group flex items-center gap-3 cursor-pointer">
-            <div className="relative flex items-center">
-              <input
-                type="checkbox"
-                checked={!!(question.constraints as any)?.[flag.key]}
-                onChange={(e) => onUpdate({
-                  constraints: { ...question.constraints, [flag.key]: e.target.checked }
-                })}
-                className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer"
-              />
-            </div>
-            <span className="text-xs font-medium text-gray-600 group-hover:text-indigo-600 transition-colors">
-              {flag.label}
-            </span>
-          </label>
-        ))}
-      </div>
-
-    </div>
-  </div>
-</div>
-          {/* --- NEW: Dependency Field --- */}
-          {/* Options Editor */}
+          {/* --- Dependency & Options --- */}
           {requiresOptionsDep && (
             <>
               {question.sequence_num !== 1 && (
@@ -201,7 +260,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                   <div className="flex gap-4 items-center">
                     <select
                       className="flex-1 border border-gray-300 rounded p-1.5 text-sm bg-white"
-                      value={question.depends_on || undefined}
+                      value={question.depends_on || ""}
                       onChange={(e) =>
                         onUpdate({
                           depends_on: e.target.value
@@ -211,27 +270,17 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                       }
                     >
                       <option value="">-- No Dependency --</option>
-                      {questions
-                        .filter((parentQ) => {
-                          const parentMeta = questionTypes.find(
-                            (t) => t.value === parentQ.type,
-                          );
-
-                          return (
-                            parentQ.sequence_num < question.sequence_num &&
-                            parentMeta?.has_options
-                          );
-                        })
-                        .map((parentQ) => (
-                          <option
-                            key={parentQ.sequence_num}
-                            value={parentQ.sequence_num}
-                          >
-                            Q{parentQ.sequence_num}:{" "}
-                            {parentQ.question.substring(0, 40)}
-                            {parentQ.question.length > 40 ? "..." : ""}
-                          </option>
-                        ))}
+                      {/* OPTIMIZATION: Use the memoized list instead of filtering inline */}
+                      {eligibleParents.map((parentQ) => (
+                        <option
+                          key={parentQ.sequence_num}
+                          value={parentQ.sequence_num}
+                        >
+                          Q{parentQ.sequence_num}:{" "}
+                          {parentQ.question.substring(0, 40)}
+                          {parentQ.question.length > 40 ? "..." : ""}
+                        </option>
+                      ))}
                     </select>
 
                     {/* Visual Indicator if Dependency is Set */}
@@ -248,7 +297,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 <RecursiveOptionEditor
                   options={question.options}
                   parentQuestionSN={question.depends_on}
-                  onChange={(newOptions) => onUpdate({ options: newOptions })}
+                  onChange={handleOptionsChange}
                 />
               </div>
             </>
