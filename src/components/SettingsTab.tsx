@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Switch } from "@headlessui/react";
-import { useSurveyContext, useMetaContext } from "..";
+import { useSurveyContext, useMetaContext, useAuth } from "..";
 
 /* -------------------------------
    Reusable Tailwind styles
@@ -18,6 +18,9 @@ const labelBase =
   "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
 
 export const SettingsTab: React.FC = () => {
+  const { can, isLoading } = useAuth();
+
+  // These strings match Django's permission codenames: "app_label.permission_codename"
   const {
     survey,
     updateMetadata,
@@ -32,7 +35,10 @@ export const SettingsTab: React.FC = () => {
   const { meta } = useMetaContext();
 
   const languages = meta?.languages || [];
-
+  // These strings match Django's permission codenames: "app_label.permission_codename"
+  if (isLoading) return <div>Loading permissions...</div>;
+  const canEdit = can("eeusurvey_app.change_survey");
+  const canDelete = can("eeusurvey_app.delete_survey");
   return (
     <div className="space-y-6">
       {/* ================= Metadata ================= */}
@@ -49,6 +55,7 @@ export const SettingsTab: React.FC = () => {
               className={inputBase}
               value={survey.metadata.title}
               onChange={(e) => updateMetadata("title", e.target.value)}
+              disabled={!canEdit}
             />
           </div>
 
@@ -59,12 +66,14 @@ export const SettingsTab: React.FC = () => {
               className={textareaBase}
               value={survey.metadata.description}
               onChange={(e) => updateMetadata("description", e.target.value)}
+              disabled={!canEdit}
             />
           </div>
 
           <div>
             <label className={labelBase}>Instructions</label>
             <textarea
+              disabled={!canEdit}
               rows={3}
               className={textareaBase}
               value={survey.metadata.instructions}
@@ -80,6 +89,7 @@ export const SettingsTab: React.FC = () => {
                 className={inputBase}
                 value={survey.metadata.version}
                 onChange={(e) => updateMetadata("version", e.target.value)}
+                disabled={!canEdit}
               />
             </div>
 
@@ -88,6 +98,7 @@ export const SettingsTab: React.FC = () => {
               <select
                 value={survey.metadata.language}
                 onChange={(e) => updateMetadata("language", e.target.value)}
+                disabled={!canEdit}
               >
                 <option value="">Select language</option>
                 {languages.map((lang) => (
@@ -118,6 +129,7 @@ export const SettingsTab: React.FC = () => {
             className={`${
               survey.metadata.is_active ? "bg-indigo-600" : "bg-gray-300"
             } relative inline-flex h-6 w-11 items-center rounded-full transition`}
+            disabled={!canEdit}
           >
             <span
               className={`${
@@ -139,6 +151,7 @@ export const SettingsTab: React.FC = () => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
               value={survey.metadata.start}
               onChange={(e) => updateMetadata("start", e.target.value)}
+              disabled={!canEdit}
             />
           </div>
           <div>
@@ -150,6 +163,7 @@ export const SettingsTab: React.FC = () => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
               value={survey.metadata.end}
               onChange={(e) => updateMetadata("end", e.target.value)}
+              disabled={!canEdit}
             />
           </div>
         </div>
@@ -161,15 +175,17 @@ export const SettingsTab: React.FC = () => {
             Question Categories
           </h3>
 
-          <button
-            onClick={addCategory}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg
+          {!canEdit || (
+            <button
+              onClick={addCategory}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg
                        bg-indigo-600 text-white text-sm font-medium
                        hover:bg-indigo-700 transition"
-          >
-            <Plus size={16} />
-            Add Category
-          </button>
+            >
+              <Plus size={16} />
+              Add Category
+            </button>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -186,24 +202,24 @@ export const SettingsTab: React.FC = () => {
               >
                 #{cat.cat_number}
               </span>
-
               <input
                 type="text"
                 className={inputBase}
                 value={cat.name}
                 onChange={(e) => updateCategory(idx, e.target.value)}
+                disabled={!canEdit}
               />
-
-              {canRemoveCategory && (
-                <button
-                  onClick={() => removeCategory(idx)}
-                  title="Remove category"
-                  className="p-2 rounded-md text-gray-400
+              {!canEdit ||
+                (canRemoveCategory && (
+                  <button
+                    onClick={() => removeCategory(idx)}
+                    title="Remove category"
+                    className="p-2 rounded-md text-gray-400
                              hover:text-red-600 hover:bg-red-50 transition"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                ))}
             </div>
           ))}
         </div>
@@ -240,6 +256,7 @@ export const SettingsTab: React.FC = () => {
                   className={`${inputBase} font-mono`}
                   value={choice.key}
                   onChange={(e) => updateKeyChoice(idx, "key", e.target.value)}
+                  disabled={!canEdit}
                 />
               </div>
 
@@ -251,28 +268,32 @@ export const SettingsTab: React.FC = () => {
                   onChange={(e) =>
                     updateKeyChoice(idx, "description", e.target.value)
                   }
+                  disabled={!canEdit}
                 />
               </div>
-
-              <button
-                onClick={() => removeKeyChoice(idx)}
-                title="Remove key choice"
-                className="p-2 rounded-md text-gray-400
+              {!canEdit || (
+                <button
+                  onClick={() => removeKeyChoice(idx)}
+                  title="Remove key choice"
+                  className="p-2 rounded-md text-gray-400
                            hover:text-red-600 hover:bg-red-50 transition"
-              >
-                <Trash2 size={18} />
-              </button>
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
             </div>
           ))}
 
-          <button
-            onClick={addKeyChoice}
-            className="inline-flex items-center gap-2 text-sm
+          {!canEdit || (
+            <button
+              onClick={addKeyChoice}
+              className="inline-flex items-center gap-2 text-sm
                        text-indigo-600 hover:underline mt-2"
-          >
-            <Plus size={16} />
-            Add Key Choice
-          </button>
+            >
+              <Plus size={16} />
+              Add Key Choice
+            </button>
+          )}
         </div>
       </section>
     </div>

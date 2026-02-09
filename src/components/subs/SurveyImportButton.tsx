@@ -2,7 +2,7 @@ import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useSurveyContext } from "../..";
 
-export const SurveyImportButton = () => {
+export const SurveyImportButton = ({ disabled }: { disabled?: boolean }) => {
   const { importSurveyFromJSON } = useSurveyContext();
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,6 +27,7 @@ export const SurveyImportButton = () => {
         accept=".json"
         className="hidden"
         onChange={handleImport}
+        disabled={disabled}
       />
 
       <label

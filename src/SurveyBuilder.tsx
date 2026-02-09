@@ -8,6 +8,7 @@ import {
   SkipLogicTab,
   SurveyImportButton,
   SurveySkeleton,
+  useAuth,
   useSurveyContext,
 } from ".";
 import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
@@ -15,20 +16,18 @@ import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
 type TabType = "settings" | "questions" | "logic" | "json";
 
 export default function SurveyBuilder() {
-  const {
-    survey,
-    handleSave,
-    exportSurveyToJSON,
-    isSaving,
-    isLoading,
-  } = useSurveyContext();
+  const { can } = useAuth();
+
+  const { survey, handleSave, exportSurveyToJSON, isSaving, isLoading } =
+    useSurveyContext();
   const [activeTab, setActiveTab] = useState<TabType>("settings");
 
   // In your SurveyBuilder component, replace the loading condition:
   if (isLoading) {
     return <SurveySkeleton />;
   }
-
+  if (isLoading) return <div>Loading permissions...</div>;
+  const canEdit = can("eeusurvey_app.change_survey");
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
       <div className="max-w-5xl mx-auto bg-white shadow-lg rounded-xl overflow-hidden">
@@ -41,18 +40,18 @@ export default function SurveyBuilder() {
             <p className="text-blue-100 text-sm">Builder v1.0</p>
           </div>
           <div className="flex gap-3">
-            <SurveyImportButton />
+            <SurveyImportButton disabled={isSaving || isLoading } />
 
             <HeaderActionButton
               onClick={exportSurveyToJSON}
-              disabled={isSaving || isLoading}
+              disabled={isSaving || isLoading || !canEdit}
               icon={<Download size={18} />}
               label="Export"
             />
 
             <HeaderActionButton
               onClick={handleSave}
-              disabled={isSaving || isLoading}
+              disabled={isSaving || isLoading || !canEdit}
               loading={isSaving}
               icon={<Save size={18} />}
               label="Save"

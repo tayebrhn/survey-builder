@@ -1,11 +1,14 @@
 import React from "react";
 import { Plus } from "lucide-react";
 import { QuestionEditor } from "./subs/QuestionEditor";
-import { useSurveyContext } from "..";
+import { useAuth, useSurveyContext } from "..";
 
 export const QuestionsTab: React.FC = () => {
+  const { can, isLoading } = useAuth();
   const { survey, addQuestion, updateQuestion, deleteQuestion } =
     useSurveyContext();
+  if (isLoading) return <div>Loading permissions...</div>;
+  const canEdit = can("eeusurvey_app.change_survey");
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -33,14 +36,16 @@ export const QuestionsTab: React.FC = () => {
           ))}
         </div>
       )}
-      <div className="flex justify-end">
-        <button
-          onClick={addQuestion}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Add Question
-        </button>
-      </div>
+      {!canEdit || (
+        <div className="flex justify-end">
+          <button
+            onClick={addQuestion}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+          >
+            <Plus size={18} /> Add Question
+          </button>
+        </div>
+      )}
     </div>
   );
 };

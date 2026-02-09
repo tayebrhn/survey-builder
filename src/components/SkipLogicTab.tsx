@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { SearchableMultiSelect } from "./subs/SearchableMultiSelect";
-import { useMetaContext, useSurveyContext } from "..";
+import { useAuth, useMetaContext, useSurveyContext } from "..";
 
 type Action = "SHOW" | "HIDE" | "JUMP_TO" | "ENABLE" | "REQUIRE";
 
@@ -16,6 +16,8 @@ const labelBase =
   "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
 
 export const SkipLogicTab: React.FC = () => {
+  const { can, isLoading } = useAuth();
+
   const { survey, addSkipLogic, updateSkipLogic, removeSkipLogic } =
     useSurveyContext();
   const { meta } = useMetaContext();
@@ -23,6 +25,9 @@ export const SkipLogicTab: React.FC = () => {
     conditions: [],
     actions: [],
   };
+  if (isLoading) return <div>Loading permissions...</div>;
+  const canEdit = can("eeusurvey_app.change_survey");
+  const canDelete = can("eeusurvey_app.delete_survey");
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -60,14 +65,16 @@ export const SkipLogicTab: React.FC = () => {
                     Rule #{idx + 1}
                   </span>
 
-                  <button
-                    onClick={() => removeSkipLogic(idx)}
-                    title="Delete rule"
-                    className="p-2 rounded-md text-gray-400
+                  {canDelete ?? (
+                    <button
+                      onClick={() => removeSkipLogic(idx)}
+                      title="Delete rule"
+                      className="p-2 rounded-md text-gray-400
                                hover:text-red-600 hover:bg-red-50 transition"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
 
                 {/* IF Section */}
@@ -86,6 +93,7 @@ export const SkipLogicTab: React.FC = () => {
                             trigger_question_sn: Number(e.target.value),
                           })
                         }
+                        disabled={!canEdit}
                       >
                         <option value={0}>Select question</option>
                         {survey.questions.map((q) => (
@@ -107,6 +115,7 @@ export const SkipLogicTab: React.FC = () => {
                             operator: e.target.value,
                           })
                         }
+                        disabled={!canEdit}
                       >
                         {conditions.map((type) => (
                           <option key={type.value} value={type.value}>
@@ -133,6 +142,7 @@ export const SkipLogicTab: React.FC = () => {
                           })
                         }
                         placeholder="Select answer(s)"
+                        disabled={!canEdit}
                       />
                     </div>
                   </div>
@@ -154,6 +164,7 @@ export const SkipLogicTab: React.FC = () => {
                             action: e.target.value as Action,
                           })
                         }
+                        disabled={!canEdit}
                       >
                         {actions.map((type) => (
                           <option key={type.value} value={type.value}>
@@ -182,6 +193,7 @@ export const SkipLogicTab: React.FC = () => {
                           })
                         }
                         placeholder="Select target questions"
+                        disabled={!canEdit}
                       />
                     </div>
                   </div>
@@ -191,14 +203,16 @@ export const SkipLogicTab: React.FC = () => {
           })}
         </div>
       )}
-      <div className="flex justify-end">
-        <button
-          onClick={addSkipLogic}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Add Rule
-        </button>
-      </div>
+      {!canEdit || (
+        <div className="flex justify-end">
+          <button
+            onClick={addSkipLogic}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+          >
+            <Plus size={18} /> Add Rule
+          </button>
+        </div>
+      )}
     </div>
   );
 };

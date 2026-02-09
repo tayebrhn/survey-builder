@@ -9,6 +9,7 @@ import type {
 } from "..";
 import {
   createEmptyQuestion,
+  getCSRFToken,
   initialSurveyState,
   MAX_FILE_SIZE_BYTES,
   MAX_FILE_SIZE_MB,
@@ -77,9 +78,11 @@ export const useSurvey = () => {
         const response = await fetch(
           `http://127.0.0.1:8000/api/surveys/${surveyId}/`,
           {
+            credentials: "include",
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken()!,
             },
           },
         );
@@ -371,8 +374,10 @@ export const useSurvey = () => {
     try {
       const response = await fetch(url, {
         method,
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken()!,
         },
         body: JSON.stringify(survey),
       });

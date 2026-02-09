@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback } from "react";
 import { GripVertical, Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../..";
-import { RecursiveOptionEditor } from "../..";
+import { RecursiveOptionEditor, useAuth } from "../..";
 import { useMetaContext } from "../..";
 
 interface QuestionEditorProps {
@@ -31,18 +31,21 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onUpdate,
   onDelete,
 }) => {
+  const { can, isLoading } = useAuth();
+
+  
   const { meta, loading } = useMetaContext();
   const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
-
+  
   // OPTIMIZATION 1: Memoize Metadata Lookup
   // Prevents array searching on every keystroke
   const typeMeta = useMemo(
     () => questionTypes?.find((t) => t.value === question.type),
     [questionTypes, question.type],
   );
-
+  
   const requiresOptionsDep = typeMeta?.has_options ?? false;
-
+  
   // OPTIMIZATION 2: Memoize Eligible Parents Calculation
   // This was likely the biggest bottleneck. Previously, it filtered through
   // ALL questions on every render. Now it recalculates only when list changes.
@@ -50,13 +53,13 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     return questions.filter((parentQ) => {
       // 1. Must be before current question
       if (parentQ.sequence_num >= question.sequence_num) return false;
-
+      
       // 2. Parent must have options (to be a dependency source)
       const parentMeta = questionTypes.find((t) => t.value === parentQ.type);
       return parentMeta?.has_options;
     });
   }, [questions, question.sequence_num, questionTypes]);
-
+  
   // OPTIMIZATION 3: Stable Handler for Child Component
   // Crucial: This ensures RecursiveOptionEditor doesn't re-render unnecessarily
   const handleOptionsChange = useCallback(
@@ -65,16 +68,20 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     },
     [onUpdate],
   );
+  // These strings match Django's permission codenames: "app_label.permission_codename"
+  if (isLoading) return <div>Loading permissions...</div>;
+  const canEdit = can("eeusurvey_app.change_survey");
+  const canDelete = can("eeusurvey_app.delete_survey");
 
   return (
     <div
       className="rounded-xl border border-gray-200 bg-white p-5
-                 shadow-sm hover:shadow-md transition space-y-4"
+    shadow-sm hover:shadow-md transition space-y-4"
     >
       <div className="flex gap-4">
         {/* Drag Handle */}
         <div className="pt-2 cursor-move text-gray-300 hover:text-gray-500 transition">
-          <GripVertical size={20} />
+          {/* <GripVertical size={20} /> */}
         </div>
 
         <div className="flex-1 space-y-4">
@@ -96,17 +103,19 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 className="w-full text-lg font-medium px-2 py-1
                            border-b-2 border-gray-200 focus:border-indigo-500
                            outline-none transition"
+                disabled={!canEdit} // Lock the field if they don't have "change" perms
               />
             </div>
-
-            <button
-              onClick={onDelete}
-              title="Delete question"
-              className="p-2 rounded-md text-gray-400
+            {canDelete ?? (
+              <button
+                onClick={onDelete}
+                title="Delete question"
+                className="p-2 rounded-md text-gray-400
                          hover:text-red-600 hover:bg-red-50 transition"
-            >
-              <Trash2 size={18} />
-            </button>
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
           </div>
 
           {/* Configuration Section */}
@@ -137,7 +146,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                           : [],
                       })
                     }
-                    disabled={loading}
+                    disabled={loading || !canEdit}
                   >
                     {questionTypes.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -156,6 +165,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                     onChange={(e) =>
                       onUpdate({ category: Number(e.target.value) })
                     }
+                    disabled={loading || !canEdit}
                   >
                     {categories.map((cat) => (
                       <option key={cat.cat_number} value={cat.cat_number}>
@@ -186,6 +196,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                               },
                             })
                           }
+                          disabled={loading || !canEdit}
                         />
                       </div>
                       <span className="text-gray-300">—</span>
@@ -205,6 +216,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                               },
                             })
                           }
+                          disabled={loading || !canEdit}
                         />
                       </div>
                     </div>
@@ -236,6 +248,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                               },
                             })
                           }
+                          disabled={loading || !canEdit}
                           className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer"
                         />
                       </div>
@@ -268,6 +281,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                             : undefined,
                         })
                       }
+                      disabled={loading || !canEdit}
                     >
                       <option value="">-- No Dependency --</option>
                       {/* OPTIMIZATION: Use the memoized list instead of filtering inline */}

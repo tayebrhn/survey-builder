@@ -18,6 +18,7 @@ interface Props {
   value: number | number[];
   onChange: (values: number[]) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export const SearchableMultiSelect: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const SearchableMultiSelect: React.FC<Props> = ({
   value,
   onChange,
   placeholder = "Select options...",
+  disabled,
 }) => {
   const [query, setQuery] = useState("");
   const filtered =
@@ -35,7 +37,7 @@ export const SearchableMultiSelect: React.FC<Props> = ({
         );
 
   return (
-    <Combobox value={value} onChange={onChange} multiple>
+    <Combobox value={value} onChange={onChange} multiple disabled={disabled}>
       <div className="relative">
         <ComboboxInput
           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-indigo-200"

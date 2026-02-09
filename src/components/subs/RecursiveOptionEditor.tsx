@@ -9,7 +9,7 @@ import {
   Square,
   Link,
 } from "lucide-react";
-import { useSurveyContext, type QuestionOption } from "../../";
+import { useAuth, useSurveyContext, type QuestionOption } from "../../";
 
 const MAX_NESTING_LEVEL = 2;
 
@@ -19,6 +19,8 @@ export const RecursiveOptionEditor: React.FC<{
   parentQuestionSN?: number;
   level?: number;
 }> = ({ options, parentQuestionSN, onChange, level = 0 }) => {
+  const { can, isLoading } = useAuth();
+
   const { survey } = useSurveyContext();
 
   // --- State ---
@@ -107,7 +109,8 @@ export const RecursiveOptionEditor: React.FC<{
       setIsSelectionMode(false);
     }
   };
-
+  if (isLoading) return <div>Loading permissions...</div>;
+  const canEdit = can("eeusurvey_app.change_survey");
   return (
     <div
       className={`space-y-2 ${level > 0 ? "ml-4 pl-3 border-l border-gray-200" : "mt-4"}`}
@@ -137,21 +140,22 @@ export const RecursiveOptionEditor: React.FC<{
           {/* ... Header Actions Section ... */}
           {isRootExpanded && (
             <div className="flex gap-2">
-              {isSelectionMode && selectedIndices.size > 0 ? (
-                <button
-                  onClick={deleteSelected}
-                  className="text-xs bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 hover:bg-red-700"
-                >
-                  <Trash2 size={12} /> Delete ({selectedIndices.size})
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowBulkPaste(!showBulkPaste)}
-                  className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
-                >
-                  <Clipboard size={12} /> Bulk Paste
-                </button>
-              )}
+              {!canEdit ||
+                (isSelectionMode && selectedIndices.size > 0 ? (
+                  <button
+                    onClick={deleteSelected}
+                    className="text-xs bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 hover:bg-red-700"
+                  >
+                    <Trash2 size={12} /> Delete ({selectedIndices.size})
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowBulkPaste(!showBulkPaste)}
+                    className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+                  >
+                    <Clipboard size={12} /> Bulk Paste
+                  </button>
+                ))}
 
               {isSelectionMode && (
                 <button
@@ -166,14 +170,17 @@ export const RecursiveOptionEditor: React.FC<{
         </div>
 
         {/* Selection Mode Toggle */}
-        {isRootExpanded && normalizedOptions.length > 0 && !isSelectionMode && (
-          <button
-            onClick={() => setIsSelectionMode(true)}
-            className="text-xs text-gray-400 hover:text-blue-600 px-2"
-          >
-            Select
-          </button>
-        )}
+        {!canEdit ||
+          (isRootExpanded &&
+            normalizedOptions.length > 0 &&
+            !isSelectionMode && (
+              <button
+                onClick={() => setIsSelectionMode(true)}
+                className="text-xs text-gray-400 hover:text-blue-600 px-2"
+              >
+                Select
+              </button>
+            ))}
       </div>
 
       {/* --- COLLAPSIBLE CONTENT AREA --- */}
@@ -313,6 +320,7 @@ export const RecursiveOptionEditor: React.FC<{
                         newOpts[idx].label = e.target.value;
                         onChange(newOpts);
                       }}
+                      disabled={!canEdit}
                     />
 
                     <input
@@ -327,6 +335,7 @@ export const RecursiveOptionEditor: React.FC<{
                         newOpts[idx].text = e.target.value;
                         onChange(newOpts);
                       }}
+                      disabled={!canEdit}
                     />
 
                     {/* Dependency Dropdown */}
@@ -357,6 +366,7 @@ export const RecursiveOptionEditor: React.FC<{
                               };
                               onChange(newOpts);
                             }}
+                            disabled={!canEdit}
                           >
                             <option value="">-- Parent Opt --</option>
                             {parentOptions.map((pOpt) => (
@@ -372,7 +382,7 @@ export const RecursiveOptionEditor: React.FC<{
 
                     {!isSelectionMode && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {canHaveChildren && (
+                        {(canHaveChildren && !canEdit) || (
                           <button
                             onClick={() => {
                               if (!isExpanded) toggleExpand(idx);
@@ -395,17 +405,19 @@ export const RecursiveOptionEditor: React.FC<{
                             <Plus size={14} />
                           </button>
                         )}
-                        <button
-                          onClick={() =>
-                            onChange(
-                              normalizedOptions.filter((_, i) => i !== idx),
-                            )
-                          }
-                          className="p-1 text-red-400 hover:bg-red-50 rounded"
-                          title="Delete Option"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {!canEdit || (
+                          <button
+                            onClick={() =>
+                              onChange(
+                                normalizedOptions.filter((_, i) => i !== idx),
+                              )
+                            }
+                            className="p-1 text-red-400 hover:bg-red-50 rounded"
+                            title="Delete Option"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -426,25 +438,26 @@ export const RecursiveOptionEditor: React.FC<{
             })}
           </div>
 
-          {!isSelectionMode && (
-            <button
-              onClick={() =>
-                onChange([
-                  ...normalizedOptions,
-                  {
-                    sequence: normalizedOptions.length + 1,
-                    text: "",
-                    label: "",
-                    is_other: false,
-                    sub_options: [],
-                  },
-                ])
-              }
-              className="text-xs text-blue-600 flex items-center gap-1 mt-2 hover:underline px-2"
-            >
-              <Plus size={14} /> Add Option
-            </button>
-          )}
+          {!canEdit ||
+            (!isSelectionMode && (
+              <button
+                onClick={() =>
+                  onChange([
+                    ...normalizedOptions,
+                    {
+                      sequence: normalizedOptions.length + 1,
+                      text: "",
+                      label: "",
+                      is_other: false,
+                      sub_options: [],
+                    },
+                  ])
+                }
+                className="text-xs text-blue-600 flex items-center gap-1 mt-2 hover:underline px-2"
+              >
+                <Plus size={14} /> Add Option
+              </button>
+            ))}
         </div>
       )}
     </div>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import type { MetaResponse } from "..";
+import { getCSRFToken, type MetaResponse } from "..";
 
 let cache: MetaResponse | null = null;
+
 
 export const useMeta = () => {
   const [meta, setMeta] = useState<MetaResponse | null>(cache);
@@ -9,7 +10,13 @@ export const useMeta = () => {
 
   useEffect(() => {
     if (cache) return;
-    fetch("http://127.0.0.1:8000/api/meta/")
+    fetch("http://127.0.0.1:8000/api/meta/", {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken()!,
+      },
+    })
       .then((res) => res.json())
       .then((data: MetaResponse) => {
         cache = data;
