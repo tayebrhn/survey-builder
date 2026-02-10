@@ -48,6 +48,7 @@ export type Action = "SHOW" | "HIDE" | "JUMP_TO" | "ENABLE" | "REQUIRE";
 
 export interface SurveyExport {
   id?: string;
+  has_responses?: boolean;
   metadata: {
     title: string;
     description: string;

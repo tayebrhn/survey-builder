@@ -4,3 +4,4 @@ export const getCSRFToken = () => {
     .find((row) => row.startsWith("csrftoken="))
     ?.split("=")[1];
 };
+

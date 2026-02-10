@@ -75,17 +75,14 @@ export const useSurvey = () => {
       setIsLoading(true);
       try {
         const token = localStorage.getItem("access_token");
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/surveys/${surveyId}/`,
-          {
-            credentials: "include",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              "X-CSRFToken": getCSRFToken()!,
-            },
+        const response = await fetch(`/api/surveys/${surveyId}/`, {
+          credentials: "include",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken()!,
           },
-        );
+        });
 
         if (!response.ok) throw new Error("Failed to load survey");
 
@@ -365,9 +362,7 @@ export const useSurvey = () => {
     setIsSaving(true);
 
     const isEdit = Boolean(surveyId);
-    const url = isEdit
-      ? `http://127.0.0.1:8000/api/surveys/${surveyId}/`
-      : "http://127.0.0.1:8000/api/surveys/";
+    const url = isEdit ? `/api/surveys/${surveyId}/` : "/api/surveys/";
 
     const method = isEdit ? "PUT" : "POST";
 

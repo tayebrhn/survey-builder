@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback } from "react";
-import { GripVertical, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../..";
-import { RecursiveOptionEditor, useAuth } from "../..";
+import { RecursiveOptionEditor, useAuth, useSurvey } from "../..";
 import { useMetaContext } from "../..";
 
 interface QuestionEditorProps {
@@ -32,20 +32,19 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onDelete,
 }) => {
   const { can, isLoading } = useAuth();
-
-  
+  const { survey } = useSurvey();
   const { meta, loading } = useMetaContext();
   const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
-  
+
   // OPTIMIZATION 1: Memoize Metadata Lookup
   // Prevents array searching on every keystroke
   const typeMeta = useMemo(
     () => questionTypes?.find((t) => t.value === question.type),
     [questionTypes, question.type],
   );
-  
+
   const requiresOptionsDep = typeMeta?.has_options ?? false;
-  
+
   // OPTIMIZATION 2: Memoize Eligible Parents Calculation
   // This was likely the biggest bottleneck. Previously, it filtered through
   // ALL questions on every render. Now it recalculates only when list changes.
@@ -53,13 +52,13 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     return questions.filter((parentQ) => {
       // 1. Must be before current question
       if (parentQ.sequence_num >= question.sequence_num) return false;
-      
+
       // 2. Parent must have options (to be a dependency source)
       const parentMeta = questionTypes.find((t) => t.value === parentQ.type);
       return parentMeta?.has_options;
     });
   }, [questions, question.sequence_num, questionTypes]);
-  
+
   // OPTIMIZATION 3: Stable Handler for Child Component
   // Crucial: This ensures RecursiveOptionEditor doesn't re-render unnecessarily
   const handleOptionsChange = useCallback(
@@ -70,7 +69,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   );
   // These strings match Django's permission codenames: "app_label.permission_codename"
   if (isLoading) return <div>Loading permissions...</div>;
-  const canEdit = can("eeusurvey_app.change_survey");
+  const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
   const canDelete = can("eeusurvey_app.delete_survey");
 
   return (

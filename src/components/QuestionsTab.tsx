@@ -8,7 +8,7 @@ export const QuestionsTab: React.FC = () => {
   const { survey, addQuestion, updateQuestion, deleteQuestion } =
     useSurveyContext();
   if (isLoading) return <div>Loading permissions...</div>;
-  const canEdit = can("eeusurvey_app.change_survey");
+  const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">

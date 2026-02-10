@@ -3,14 +3,13 @@ import { getCSRFToken, type MetaResponse } from "..";
 
 let cache: MetaResponse | null = null;
 
-
 export const useMeta = () => {
   const [meta, setMeta] = useState<MetaResponse | null>(cache);
   const [loading, setLoading] = useState(!cache);
 
   useEffect(() => {
     if (cache) return;
-    fetch("http://127.0.0.1:8000/api/meta/", {
+    fetch("/api/meta/", {
       credentials: "include",
       headers: {
         "Content-Type": "application/json",

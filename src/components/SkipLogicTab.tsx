@@ -26,7 +26,7 @@ export const SkipLogicTab: React.FC = () => {
     actions: [],
   };
   if (isLoading) return <div>Loading permissions...</div>;
-  const canEdit = can("eeusurvey_app.change_survey");
+  const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
   const canDelete = can("eeusurvey_app.delete_survey");
   return (
     <div className="space-y-6">

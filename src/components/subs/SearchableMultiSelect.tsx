@@ -35,16 +35,17 @@ export const SearchableMultiSelect: React.FC<Props> = ({
       : options.filter((o) =>
           o.label.toLowerCase().includes(query.toLowerCase()),
         );
+  const values = Array.isArray(value) ? value : value ? [value] : [];
 
   return (
-    <Combobox value={value} onChange={onChange} multiple disabled={disabled}>
+    <Combobox value={values} onChange={onChange} multiple disabled={disabled}>
       <div className="relative">
         <ComboboxInput
           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-indigo-200"
           onChange={(e) => setQuery(e.target.value)}
           displayValue={() =>
             options
-              .filter((o) => value.includes(o.value))
+              .filter((o) => values.includes(o.value ?? o.label))
               .map((o) => o.label)
               .join(", ")
           }

@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     // Fetch user data from the Django endpoint we created above
     // Django Session cookies are sent automatically by the browser
-    fetch("http://127.0.0.1:8000/api/user/", {
+    fetch("/api/user/", {
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return user.permissions.includes(permission);
     },
     [user],
-);
+  );
 
   return (
     <AuthContext.Provider value={{ user, isLoading, can }}>

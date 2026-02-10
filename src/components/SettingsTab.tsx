@@ -37,8 +37,9 @@ export const SettingsTab: React.FC = () => {
   const languages = meta?.languages || [];
   // These strings match Django's permission codenames: "app_label.permission_codename"
   if (isLoading) return <div>Loading permissions...</div>;
-  const canEdit = can("eeusurvey_app.change_survey");
-  const canDelete = can("eeusurvey_app.delete_survey");
+  const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
+
+  console.log(can("eeusurvey_app.change_survey"))
   return (
     <div className="space-y-6">
       {/* ================= Metadata ================= */}
