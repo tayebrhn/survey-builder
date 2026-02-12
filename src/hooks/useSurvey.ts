@@ -75,14 +75,17 @@ export const useSurvey = () => {
       setIsLoading(true);
       try {
         const token = localStorage.getItem("access_token");
-        const response = await fetch(`/api/surveys/${surveyId}/`, {
-          credentials: "include",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCSRFToken()!,
+        const response = await fetch(
+          `${import.meta.env.VITE_SURVEY_API + surveyId}/`,
+          {
+            credentials: "include",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken()!,
+            },
           },
-        });
+        );
 
         if (!response.ok) throw new Error("Failed to load survey");
 
@@ -171,18 +174,17 @@ export const useSurvey = () => {
     try {
       // Generate safe filename
       const getSafeFilename = () => {
-        const title = (survey.metadata.title || "untitled-survey")
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "-")
-          .replace(/-+/g, "-")
-          .replace(/^-|-$/g, "")
-          .slice(0, 50); // Limit length
+        // const title = (survey.metadata.title || "untitled-survey")
+        //   .toLowerCase()
+        //   .replace(/[^a-z0-9]/g, "-")
+        //   .replace(/-+/g, "-")
+        //   .replace(/^-|-$/g, "")
+        //   .slice(0, 50); // Limit length
 
         const now = new Date();
         const dateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
         const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "-"); // HH-MM-SS
-
-        return `survey-${title}-${dateStr}-${timeStr}.json`;
+        return `survey-v-${survey.metadata.version}-${dateStr}-${timeStr}.json`;
       };
 
       const filename = getSafeFilename();
@@ -362,7 +364,9 @@ export const useSurvey = () => {
     setIsSaving(true);
 
     const isEdit = Boolean(surveyId);
-    const url = isEdit ? `/api/surveys/${surveyId}/` : "/api/surveys/";
+    const url = isEdit
+      ? `${import.meta.env.VITE_SURVEY_API + surveyId}/`
+      : import.meta.env.VITE_SURVEY_API;
 
     const method = isEdit ? "PUT" : "POST";
 

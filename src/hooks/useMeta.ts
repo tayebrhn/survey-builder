@@ -9,7 +9,7 @@ export const useMeta = () => {
 
   useEffect(() => {
     if (cache) return;
-    fetch("/api/meta/", {
+    fetch(import.meta.env.VITE_SURVEY_API_META, {
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
