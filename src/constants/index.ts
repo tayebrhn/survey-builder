@@ -4,8 +4,8 @@ export const generateId = () => crypto.randomUUID();
 
 export const createEmptyOption = (sequence: number): QuestionOption => ({
   sequence,
-  text: "",
-  label: "",
+  text: `Option ${sequence}`,
+  label: `op-${sequence}`,
   is_other: false,
   sub_options: [],
 });
@@ -15,10 +15,11 @@ export const createEmptyQuestion = (
   catId: number,
 ): SurveyQuestion => ({
   sequence_num: seq,
-  type: "",
-  question: "",
+  type: "text",
+  question: `Queston #${seq}`,
+  placeholder: "",
   category: catId,
-  constraints: {hidden:false, verifiable: false, required: true },
+  constraints: { hidden: false, verifiable: false, required: true },
   options: [],
 });
 
@@ -35,7 +36,7 @@ export const initialSurveyState: SurveyExport = {
     is_active: false,
     language: "en",
   },
-  questions: [],
+  questions: [createEmptyQuestion(1, 1)],
   question_categories: [{ cat_number: 1, name: "General" }],
   key_choice: [],
   skip_logic: [],

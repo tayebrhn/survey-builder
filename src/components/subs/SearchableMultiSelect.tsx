@@ -41,6 +41,7 @@ export const SearchableMultiSelect: React.FC<Props> = ({
     <Combobox value={values} onChange={onChange} multiple disabled={disabled}>
       <div className="relative">
         <ComboboxInput
+          required
           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-indigo-200"
           onChange={(e) => setQuery(e.target.value)}
           displayValue={() =>
@@ -52,7 +53,10 @@ export const SearchableMultiSelect: React.FC<Props> = ({
           placeholder={placeholder}
         />
 
-        <ComboboxButton className="absolute inset-y-0 right-2 flex items-center">
+        <ComboboxButton
+          className="absolute inset-y-0 right-2 flex items-center"
+          type="button"
+        >
           <ChevronDown size={16} className="text-gray-400" />
         </ComboboxButton>
 

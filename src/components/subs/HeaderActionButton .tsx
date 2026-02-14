@@ -1,11 +1,12 @@
 import { Loader } from "lucide-react";
 
 type HeaderActionButtonProps = {
-  onClick: () => void;
+  onClick?: () => void;
   disabled: boolean;
   loading?: boolean;
   icon: React.ReactNode;
   label: string;
+  type: "button"|"submit";
   loadingLabel?: string;
 };
 
@@ -15,9 +16,11 @@ export const HeaderActionButton = ({
   loading,
   icon,
   label,
+  type,
   loadingLabel = label,
 }: HeaderActionButtonProps) => (
   <button
+    type={type}
     onClick={onClick}
     disabled={disabled}
     className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition

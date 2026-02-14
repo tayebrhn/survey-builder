@@ -429,6 +429,7 @@ export const useSurvey = () => {
     handleSave,
     importSurveyFromJSON,
     exportSurveyToJSON,
+    surveyId,
     isSaving,
     isLoading,
   };

@@ -1,8 +1,9 @@
 import React, { useMemo, useCallback } from "react";
-import { Trash2 } from "lucide-react";
+import { TextCursor, Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../..";
-import { RecursiveOptionEditor, useAuth, useSurvey } from "../..";
+import { createEmptyOption, RecursiveOptionEditor, useAuth, useSurvey } from "../..";
 import { useMetaContext } from "../..";
+import { CheckboxRadio, Input, Select } from "../forms/FormsComponent";
 
 interface QuestionEditorProps {
   question: SurveyQuestion;
@@ -31,9 +32,9 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onUpdate,
   onDelete,
 }) => {
-  const { can, isLoading } = useAuth();
+  const { can, isLoading: loading } = useAuth();
   const { survey } = useSurvey();
-  const { meta, loading } = useMetaContext();
+  const { meta, loading: metaLoading } = useMetaContext();
   const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
 
   // OPTIMIZATION 1: Memoize Metadata Lookup
@@ -43,8 +44,17 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     [questionTypes, question.type],
   );
 
+  const havePlacehoder = typeMeta?.has_plh ?? false;
   const requiresOptionsDep = typeMeta?.has_options ?? false;
-
+// Only keep options if the type requires them
+if (!requiresOptionsDep) {
+  question.options = []; // clear any pre-existing options
+} else {
+  // Ensure there's at least one default option
+  if (!question.options || question.options.length === 0) {
+    question.options = [createEmptyOption(1),createEmptyOption(2)];
+  }
+}
   // OPTIMIZATION 2: Memoize Eligible Parents Calculation
   // This was likely the biggest bottleneck. Previously, it filtered through
   // ALL questions on every render. Now it recalculates only when list changes.
@@ -68,252 +78,242 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     [onUpdate],
   );
   // These strings match Django's permission codenames: "app_label.permission_codename"
-  if (isLoading) return <div>Loading permissions...</div>;
+  if (metaLoading) return <div>Loading permissions...</div>;
+  // 3. Safety Check: If meta loaded but is empty (API error), handle gracefully
+  if (questionTypes.length === 0) {
+    return (
+      <div className="p-4 text-red-500">
+        Error: Could not load question types.
+      </div>
+    );
+  }
   const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
   const canDelete = can("eeusurvey_app.delete_survey");
 
   return (
-    <div
-      className="rounded-xl border border-gray-200 bg-white p-5
-    shadow-sm hover:shadow-md transition space-y-4"
-    >
-      <div className="flex gap-4">
+    <div className="group relative rounded-2xl border border-gray-200/70 bg-white/90 backdrop-blur-sm p-6 shadow-sm hover:shadow-lg transition-all duration-300">
+      {/* Left Accent Bar */}
+      <div className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-indigo-500 opacity-70 group-hover:opacity-100 transition" />
+
+      <div className="flex gap-5">
         {/* Drag Handle */}
         <div className="pt-2 cursor-move text-gray-300 hover:text-gray-500 transition">
-          {/* <GripVertical size={20} /> */}
+          {/* <GripVertical size={18} /> */}
         </div>
 
-        <div className="flex-1 space-y-4">
-          {/* Header */}
-          <div className="flex items-start gap-3">
-            <span
-              className="inline-flex items-center px-3 py-1 rounded-full
-                          bg-indigo-50 text-indigo-700 text-sm font-bold shrink-0"
-            >
-              Q{question.sequence_num}
-            </span>
+        <div className="flex-1 space-y-6">
+          {/* ================= HEADER ================= */}
+          <div className="flex items-start gap-4">
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-indigo-100 text-indigo-700 text-sm font-bold">
+                {question.sequence_num}
+              </span>
+            </div>
 
             <div className="flex-1">
-              <input
+              <Input
                 type="text"
-                placeholder="Enter your question here…"
+                placeholder="Enter your question..."
                 value={question.question}
                 onChange={(e) => onUpdate({ question: e.target.value })}
-                className="w-full text-lg font-medium px-2 py-1
-                           border-b-2 border-gray-200 focus:border-indigo-500
-                           outline-none transition"
-                disabled={!canEdit} // Lock the field if they don't have "change" perms
+                disabled={!canEdit}
+                className="w-full text-lg font-semibold bg-transparent border-b border-gray-200 focus:border-indigo-500 outline-none py-1 transition"
               />
             </div>
-            {canDelete ?? (
+
+            {canDelete && (
               <button
+                type="button"
                 onClick={onDelete}
-                title="Delete question"
-                className="p-2 rounded-md text-gray-400
-                         hover:text-red-600 hover:bg-red-50 transition"
+                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
               >
                 <Trash2 size={18} />
               </button>
             )}
           </div>
 
-          {/* Configuration Section */}
-          <div className="rounded-xl bg-white border border-gray-200 shadow-sm overflow-hidden">
-            <div className="bg-gray-50/50 border-b border-gray-100 px-4 py-2">
-              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                Question Settings
-              </span>
+          {/* ================= SETTINGS ================= */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            {/* Question Type */}
+            <div>
+              <label className={labelBase}>Type</label>
+              <Select
+                className={inputBase}
+                value={question.type}
+                disabled={loading || !canEdit}
+                onChange={(e) =>
+                  onUpdate({
+                    type: e.target.value as QuestionType,
+                    options: questionTypes.find(
+                      (t) => t.value === e.target.value,
+                    )?.has_options
+                      ? question.options
+                      : [],
+                  })
+                }
+              >
+                {questionTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </Select>
             </div>
 
-            <div className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* 1. Question Type */}
-                <div className="space-y-1.5">
-                  <label className={`${labelBase} flex items-center gap-2`}>
-                    Type
-                  </label>
-                  <select
-                    className={`${inputBase} w-full`}
-                    value={question.type}
+            {/* Category */}
+            <div>
+              <label className={labelBase}>Category</label>
+              <Select
+                className={inputBase}
+                value={question.category}
+                disabled={loading || !canEdit}
+                onChange={(e) => onUpdate({ category: Number(e.target.value) })}
+              >
+                {categories.map((cat) => (
+                  <option key={cat.cat_number} value={cat.cat_number}>
+                    {cat.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Length Constraints */}
+            {!requiresOptionsDep && question.type !== "rating" && (
+              <div>
+                <label className={labelBase}>Length</label>
+                <div className="flex gap-3">
+                  <Input
+                    type="number"
+                    required={false}
+                    placeholder="Min"
+                    className={inputBase}
+                    value={question.constraints?.min_length || ""}
+                    disabled={loading || !canEdit}
                     onChange={(e) =>
                       onUpdate({
-                        type: e.target.value as QuestionType,
-                        options: questionTypes.find(
-                          (t) => t.value === e.target.value,
-                        )?.has_options
-                          ? question.options
-                          : [],
+                        constraints: {
+                          ...question.constraints,
+                          min_length: Number(e.target.value),
+                        },
                       })
                     }
+                  />
+                  <Input
+                    type="number"
+                    required={false}
+                    placeholder="Max"
+                    className={inputBase}
+                    value={question.constraints?.max_length || ""}
                     disabled={loading || !canEdit}
-                  >
-                    {questionTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 2. Category */}
-                <div className="space-y-1.5">
-                  <label className={labelBase}>Category</label>
-                  <select
-                    className={`${inputBase} w-full`}
-                    value={question.category}
                     onChange={(e) =>
-                      onUpdate({ category: Number(e.target.value) })
+                      onUpdate({
+                        constraints: {
+                          ...question.constraints,
+                          max_length: Number(e.target.value),
+                        },
+                      })
                     }
-                    disabled={loading || !canEdit}
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat.cat_number} value={cat.cat_number}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 3. Input Length Constraints */}
-                {!requiresOptionsDep && question.type !== "rating" ? (
-                  <div className="space-y-1.5">
-                    <label className={labelBase}>Length Constraints</label>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">
-                          MIN
-                        </span>
-                        <input
-                          type="number"
-                          className={`${inputBase} pl-9 w-full text-right`}
-                          value={question.constraints?.min_length || 0}
-                          onChange={(e) =>
-                            onUpdate({
-                              constraints: {
-                                ...question.constraints,
-                                min_length: Number(e.target.value),
-                              },
-                            })
-                          }
-                          disabled={loading || !canEdit}
-                        />
-                      </div>
-                      <span className="text-gray-300">—</span>
-                      <div className="relative flex-1">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 pointer-events-none">
-                          MAX
-                        </span>
-                        <input
-                          type="number"
-                          className={`${inputBase} pl-9 w-full text-right`}
-                          value={question.constraints?.max_length || 0}
-                          onChange={(e) =>
-                            onUpdate({
-                              constraints: {
-                                ...question.constraints,
-                                max_length: Number(e.target.value),
-                              },
-                            })
-                          }
-                          disabled={loading || !canEdit}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="hidden lg:block" /> /* Spacer for alignment */
-                )}
-
-                {/* 4. Behavioral Flags */}
-                <div className="flex flex-col gap-2.5 pt-6 lg:pt-7 lg:pl-4">
-                  {[
-                    { key: "required", label: "Required" },
-                    { key: "verifiable", label: "Verifiable" },
-                    { key: "hidden", label: "Hidden" },
-                  ].map((flag) => (
-                    <label
-                      key={flag.key}
-                      className="group flex items-center gap-3 cursor-pointer"
-                    >
-                      <div className="relative flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={!!(question.constraints as any)?.[flag.key]}
-                          onChange={(e) =>
-                            onUpdate({
-                              constraints: {
-                                ...question.constraints,
-                                [flag.key]: e.target.checked,
-                              },
-                            })
-                          }
-                          disabled={loading || !canEdit}
-                          className="peer h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all cursor-pointer"
-                        />
-                      </div>
-                      <span className="text-xs font-medium text-gray-600 group-hover:text-indigo-600 transition-colors">
-                        {flag.label}
-                      </span>
-                    </label>
-                  ))}
+                  />
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Placeholder */}
+            {havePlacehoder && (
+              <div>
+                <label className={labelBase}>Placeholder</label>
+                <div className="relative">
+                  <TextCursor
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={16}
+                  />
+                  <Input
+                    type="text"
+                    required={false}
+                    className={`${inputBase} pl-9`}
+                    placeholder="Type your placeholder..."
+                    value={question.placeholder}
+                    disabled={loading || !canEdit}
+                    onChange={(e) => onUpdate({ placeholder: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* --- Dependency & Options --- */}
-          {requiresOptionsDep && (
-            <>
-              {question.sequence_num !== 1 && (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">
-                    Dependency (Parent Question)
-                  </label>
-                  <div className="flex gap-4 items-center">
-                    <select
-                      className="flex-1 border border-gray-300 rounded p-1.5 text-sm bg-white"
-                      value={question.depends_on || ""}
-                      onChange={(e) =>
-                        onUpdate({
-                          depends_on: e.target.value
-                            ? Number(e.target.value)
-                            : undefined,
-                        })
-                      }
-                      disabled={loading || !canEdit}
-                    >
-                      <option value="">-- No Dependency --</option>
-                      {/* OPTIMIZATION: Use the memoized list instead of filtering inline */}
-                      {eligibleParents.map((parentQ) => (
-                        <option
-                          key={parentQ.sequence_num}
-                          value={parentQ.sequence_num}
-                        >
-                          Q{parentQ.sequence_num}:{" "}
-                          {parentQ.question.substring(0, 40)}
-                          {parentQ.question.length > 40 ? "..." : ""}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* Visual Indicator if Dependency is Set */}
-                    {question.depends_on && (
-                      <div className="text-xs text-yellow-700 flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                        Linked to Q{question.depends_on}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              <div className="rounded-lg border border-dashed border-gray-300 px-4 py-2">
-                <RecursiveOptionEditor
-                  options={question.options}
-                  parentQuestionSN={question.depends_on}
-                  onChange={handleOptionsChange}
+          {/* ================= FLAGS ================= */}
+          <div className="flex flex-wrap gap-6 pt-2 border-t border-gray-100">
+            {[
+              { key: "required", label: "Required" },
+              { key: "verifiable", label: "Verifiable" },
+              { key: "hidden", label: "Hidden" },
+            ].map((flag) => (
+              <label
+                key={flag.key}
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 cursor-pointer"
+              >
+                <CheckboxRadio
+                  type="checkbox"
+                  required={false}
+                  checked={!!(question.constraints as any)?.[flag.key]}
+                  disabled={loading || !canEdit}
+                  onChange={(e) =>
+                    onUpdate({
+                      constraints: {
+                        ...question.constraints,
+                        [flag.key]: e.target.checked,
+                      },
+                    })
+                  }
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
-              </div>
-            </>
+                {flag.label}
+              </label>
+            ))}
+          </div>
+
+          {/* ================= DEPENDENCY ================= */}
+          {requiresOptionsDep && question.sequence_num !== 1 && (
+            <div className="p-4 rounded-xl bg-yellow-50 border border-yellow-200">
+              <label className="block text-xs font-semibold uppercase text-yellow-700 mb-2">
+                Dependency
+              </label>
+
+              <Select
+              required={false}
+                className={inputBase}
+                value={question.depends_on || ""}
+                disabled={loading || !canEdit}
+                onChange={(e) =>
+                  onUpdate({
+                    depends_on: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  })
+                }
+              >
+                <option value="">No Dependency</option>
+                {eligibleParents.map((parentQ) => (
+                  <option
+                    key={parentQ.sequence_num}
+                    value={parentQ.sequence_num}
+                  >
+                    Q{parentQ.sequence_num}: {parentQ.question.substring(0, 40)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+
+          {/* ================= OPTIONS ================= */}
+          {requiresOptionsDep && (
+            <div className="rounded-xl border border-dashed border-gray-300 p-4">
+              <RecursiveOptionEditor
+                options={question.options}
+                parentQuestionSN={question.depends_on}
+                onChange={handleOptionsChange}
+              />
+            </div>
           )}
         </div>
       </div>

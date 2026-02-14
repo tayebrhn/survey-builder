@@ -7,6 +7,7 @@ export type QuestionTypeMeta = {
   value: string;
   label: string;
   has_options: boolean;
+  has_plh: boolean;
   max_options?: number;
 };
 

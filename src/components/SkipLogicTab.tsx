@@ -21,10 +21,12 @@ export const SkipLogicTab: React.FC = () => {
   const { survey, addSkipLogic, updateSkipLogic, removeSkipLogic } =
     useSurveyContext();
   const { meta } = useMetaContext();
+
   const { conditions, actions } = meta?.skip_logic || {
     conditions: [],
     actions: [],
   };
+
   if (isLoading) return <div>Loading permissions...</div>;
   const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
   const canDelete = can("eeusurvey_app.delete_survey");
@@ -67,6 +69,7 @@ export const SkipLogicTab: React.FC = () => {
 
                   {canDelete ?? (
                     <button
+                      type="button"
                       onClick={() => removeSkipLogic(idx)}
                       title="Delete rule"
                       className="p-2 rounded-md text-gray-400
@@ -96,11 +99,13 @@ export const SkipLogicTab: React.FC = () => {
                         disabled={!canEdit}
                       >
                         <option value={0}>Select question</option>
-                        {survey.questions.map((q) => (
-                          <option key={q.sequence_num} value={q.sequence_num}>
-                            Q{q.sequence_num}: {q.question.substring(0, 40)}…
-                          </option>
-                        ))}
+                        {survey.questions.map((q) =>
+                          q.options.length ? (
+                            <option key={q.sequence_num} value={q.sequence_num}>
+                              Q{q.sequence_num}: {q.question.substring(0, 40)}…
+                            </option>
+                          ) : null,
+                        )}
                       </select>
                     </div>
 
@@ -206,6 +211,7 @@ export const SkipLogicTab: React.FC = () => {
       {!canEdit || (
         <div className="flex justify-end">
           <button
+            type="button"
             onClick={addSkipLogic}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
           >

@@ -12,6 +12,9 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  esbuild: {
+    drop:["console"]
+  },
   server: {
     host: "127.0.0.1",
   },

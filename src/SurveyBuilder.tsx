@@ -1,9 +1,18 @@
-import { useState } from "react";
-import { Save, Settings, List, FileJson, Loader, Download } from "lucide-react";
+import { useRef, useState } from "react";
 import {
-  JsonTab,
+  Save,
+  Settings,
+  List,
+  FileJson,
+  Loader,
+  Download,
+  Eye,
+} from "lucide-react";
+import {
+  // JsonTab,
   MetaProvider,
   QuestionsTab,
+  RequiredProvider,
   SettingsTab,
   SkipLogicTab,
   SurveyImportButton,
@@ -13,14 +22,58 @@ import {
 } from ".";
 import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
 
-type TabType = "settings" | "questions" | "logic" | "json";
+// type TabType = "settings" | "questions" | "logic" | "json";
+type TabType = "settings" | "questions" | "logic";
 
 export default function SurveyBuilder() {
   const { can } = useAuth();
 
-  const { survey, handleSave, exportSurveyToJSON, isSaving, isLoading } =
-    useSurveyContext();
+  const {
+    survey,
+    handleSave,
+    exportSurveyToJSON,
+    surveyId,
+    isSaving,
+    isLoading,
+  } = useSurveyContext();
   const [activeTab, setActiveTab] = useState<TabType>("settings");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleCustomSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formRef.current) return;
+
+    const controls = formRef.current.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >("input, textarea, select");
+
+    // 1. Find all invalid fields (even hidden ones)
+    const allInvalidFields = Array.from(controls).filter(
+      (el) => !el.checkValidity(),
+    );
+
+    if (allInvalidFields.length > 0) {
+      const firstInvalid = allInvalidFields[0];
+
+      // 2. SMART TAB SWITCHING:
+      // If the invalid element is hidden, find which tab container it belongs to and switch to it
+      const parentTab = firstInvalid.closest("[data-tab-name]");
+      const tabName = parentTab?.getAttribute("data-tab-name") as TabType;
+
+      if (tabName && tabName !== activeTab) {
+        setActiveTab(tabName);
+      }
+
+      // 3. Focus and Alert (Delay slightly if tab switched so the DOM is visible)
+      setTimeout(() => {
+        firstInvalid.reportValidity();
+        firstInvalid.focus();
+      }, 50);
+      return;
+    }
+
+    handleSave();
+  };
 
   // In your SurveyBuilder component, replace the loading condition:
   if (isLoading) {
@@ -28,11 +81,12 @@ export default function SurveyBuilder() {
   }
   if (isLoading) return <div>Loading permissions...</div>;
   const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
+
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
       <div className="max-w-5xl mx-auto bg-white shadow-lg rounded-xl overflow-hidden">
         {/* Header */}
-        <fieldset>
+        <form ref={formRef} onSubmit={handleCustomSave} noValidate>
           <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold">
@@ -41,9 +95,22 @@ export default function SurveyBuilder() {
               <p className="text-blue-100 text-sm">Builder v1.0</p>
             </div>
             <div className="flex gap-3">
+              {/* 3. Render Preview Button if surveyId exists */}
+              {surveyId && (
+                <HeaderActionButton
+                  type="button"
+                  onClick={() =>
+                    window.open(`/admin/survey-preview/${surveyId}`, "_blank")
+                  }
+                  disabled={isSaving || isLoading}
+                  icon={<Eye size={18} />}
+                  label="Preview"
+                />
+              )}
               <SurveyImportButton disabled={isSaving || isLoading} />
 
               <HeaderActionButton
+                type="button"
                 onClick={exportSurveyToJSON}
                 disabled={isSaving || isLoading || !canEdit}
                 icon={<Download size={18} />}
@@ -51,7 +118,8 @@ export default function SurveyBuilder() {
               />
 
               <HeaderActionButton
-                onClick={handleSave}
+                type="submit"
+                // onClick={handleCustomSave}
                 disabled={isSaving || isLoading || !canEdit}
                 loading={isSaving}
                 icon={<Save size={18} />}
@@ -64,6 +132,7 @@ export default function SurveyBuilder() {
           {/* Navigation Tabs - Disable while loading */}
           <div className="flex border-b border-gray-200">
             <button
+              type="button"
               onClick={() => !isLoading && setActiveTab("settings")}
               disabled={isLoading}
               className={`flex-1 py-4 text-center font-medium flex justify-center items-center gap-2 ${
@@ -78,6 +147,7 @@ export default function SurveyBuilder() {
               )}
             </button>
             <button
+              type="button"
               onClick={() => !isLoading && setActiveTab("questions")}
               disabled={isLoading}
               className={`flex-1 py-4 text-center font-medium flex justify-center items-center gap-2 ${
@@ -95,6 +165,7 @@ export default function SurveyBuilder() {
               </span>
             </button>
             <button
+              type="button"
               onClick={() => !isLoading && setActiveTab("logic")}
               disabled={isLoading}
               className={`flex-1 py-4 text-center font-medium flex justify-center items-center gap-2 ${
@@ -108,7 +179,8 @@ export default function SurveyBuilder() {
                 <Loader className="animate-spin h-3 w-3 ml-1" />
               )}
             </button>
-            <button
+            {/* <button
+              type="button"
               onClick={() => !isLoading && setActiveTab("json")}
               disabled={isLoading}
               className={`flex-1 py-4 text-center font-medium flex justify-center items-center gap-2 ${
@@ -121,7 +193,7 @@ export default function SurveyBuilder() {
               {isLoading && activeTab === "json" && (
                 <Loader className="animate-spin h-3 w-3 ml-1" />
               )}
-            </button>
+            </button> */}
           </div>
 
           {/* Content Area - Show loading for active tab */}
@@ -136,15 +208,40 @@ export default function SurveyBuilder() {
                 </div>
               ) : (
                 <>
-                  {activeTab === "settings" && <SettingsTab />}
-                  {activeTab === "questions" && <QuestionsTab />}
-                  {activeTab === "logic" && <SkipLogicTab />}
-                  {activeTab === "json" && <JsonTab />}
+                  <RequiredProvider>
+                    {/* Wrap each tab in a div with 'data-tab-name'. 
+                   This allows our logic to know WHERE an error is.
+                */}
+                    <div
+                      data-tab-name="settings"
+                      className={activeTab === "settings" ? "" : "hidden"}
+                    >
+                      <SettingsTab />
+                    </div>
+                    <div
+                      data-tab-name="questions"
+                      className={activeTab === "questions" ? "" : "hidden"}
+                    >
+                      <QuestionsTab />
+                    </div>
+                    <div
+                      data-tab-name="logic"
+                      className={activeTab === "logic" ? "" : "hidden"}
+                    >
+                      <SkipLogicTab />
+                    </div>
+                    {/* <div
+                      data-tab-name="json"
+                      className={activeTab === "json" ? "" : "hidden"}
+                    >
+                      <JsonTab />
+                    </div> */}
+                  </RequiredProvider>
                 </>
               )}
             </div>
           </MetaProvider>
-        </fieldset>
+        </form>
       </div>
     </div>
   );
