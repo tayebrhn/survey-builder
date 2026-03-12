@@ -9,6 +9,7 @@ import {
   Eye,
 } from "lucide-react";
 import {
+  JsonTab,
   // JsonTab,
   MetaProvider,
   QuestionsTab,
@@ -22,8 +23,8 @@ import {
 } from ".";
 import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
 
-// type TabType = "settings" | "questions" | "logic" | "json";
-type TabType = "settings" | "questions" | "logic";
+type TabType = "settings" | "questions" | "logic" | "json";
+// type TabType = "settings" | "questions" | "logic";
 
 export default function SurveyBuilder() {
   const { can } = useAuth();
@@ -84,7 +85,7 @@ export default function SurveyBuilder() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
-      <div className="max-w-5xl mx-auto bg-white shadow-lg rounded-xl overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-white shadow-lg rounded-xl">
         {/* Header */}
         <form ref={formRef} onSubmit={handleCustomSave} noValidate>
           <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
@@ -179,7 +180,7 @@ export default function SurveyBuilder() {
                 <Loader className="animate-spin h-3 w-3 ml-1" />
               )}
             </button>
-            {/* <button
+            <button
               type="button"
               onClick={() => !isLoading && setActiveTab("json")}
               disabled={isLoading}
@@ -193,7 +194,7 @@ export default function SurveyBuilder() {
               {isLoading && activeTab === "json" && (
                 <Loader className="animate-spin h-3 w-3 ml-1" />
               )}
-            </button> */}
+            </button>
           </div>
 
           {/* Content Area - Show loading for active tab */}
@@ -230,12 +231,12 @@ export default function SurveyBuilder() {
                     >
                       <SkipLogicTab />
                     </div>
-                    {/* <div
+                    <div
                       data-tab-name="json"
                       className={activeTab === "json" ? "" : "hidden"}
                     >
                       <JsonTab />
-                    </div> */}
+                    </div>
                   </RequiredProvider>
                 </>
               )}

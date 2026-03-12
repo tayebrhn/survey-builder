@@ -18,5 +18,6 @@ export type MetaResponse = {
     conditions: Choice[];
     actions: Choice[];
   };
+  validation_type: Choice[]
 };
 

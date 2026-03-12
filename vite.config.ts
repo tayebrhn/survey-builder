@@ -13,10 +13,11 @@ export default defineConfig({
     tailwindcss(),
   ],
   esbuild: {
-    drop:["console"]
+    // drop:["console"]
   },
   server: {
     host: "127.0.0.1",
+    port:8001
   },
   base: "/admin/survey-builder/",
 });

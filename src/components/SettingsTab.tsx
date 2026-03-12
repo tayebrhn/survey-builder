@@ -92,7 +92,7 @@ export const SettingsTab: React.FC = () => {
                 className={inputBase}
                 value={survey.metadata.version}
                 onChange={(e) => updateMetadata("version", e.target.value)}
-                disabled={!canEdit}
+                disabled={true}
               />
             </div>
 

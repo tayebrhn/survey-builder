@@ -1,7 +1,12 @@
 import React, { useMemo, useCallback } from "react";
 import { TextCursor, Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../..";
-import { createEmptyOption, RecursiveOptionEditor, useAuth, useSurvey } from "../..";
+import {
+  createEmptyOption,
+  RecursiveOptionEditor,
+  useAuth,
+  useSurvey,
+} from "../..";
 import { useMetaContext } from "../..";
 import { CheckboxRadio, Input, Select } from "../forms/FormsComponent";
 
@@ -36,25 +41,26 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   const { survey } = useSurvey();
   const { meta, loading: metaLoading } = useMetaContext();
   const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
+  const validationType = useMemo(() => meta?.validation_type || [], [meta]);
 
   // OPTIMIZATION 1: Memoize Metadata Lookup
   // Prevents array searching on every keystroke
   const typeMeta = useMemo(
-    () => questionTypes?.find((t) => t.value === question.type),
-    [questionTypes, question.type],
+    () => questionTypes?.find((t) => t.value === question.q_type),
+    [questionTypes, question.q_type],
   );
 
   const havePlacehoder = typeMeta?.has_plh ?? false;
   const requiresOptionsDep = typeMeta?.has_options ?? false;
-// Only keep options if the type requires them
-if (!requiresOptionsDep) {
-  question.options = []; // clear any pre-existing options
-} else {
-  // Ensure there's at least one default option
-  if (!question.options || question.options.length === 0) {
-    question.options = [createEmptyOption(1),createEmptyOption(2)];
+  // Only keep options if the type requires them
+  if (!requiresOptionsDep) {
+    question.options = []; // clear any pre-existing options
+  } else {
+    // Ensure there's at least one default option
+    if (!question.options || question.options.length === 0) {
+      question.options = [createEmptyOption(1), createEmptyOption(2)];
+    }
   }
-}
   // OPTIMIZATION 2: Memoize Eligible Parents Calculation
   // This was likely the biggest bottleneck. Previously, it filtered through
   // ALL questions on every render. Now it recalculates only when list changes.
@@ -64,7 +70,7 @@ if (!requiresOptionsDep) {
       if (parentQ.sequence_num >= question.sequence_num) return false;
 
       // 2. Parent must have options (to be a dependency source)
-      const parentMeta = questionTypes.find((t) => t.value === parentQ.type);
+      const parentMeta = questionTypes.find((t) => t.value === parentQ.q_type);
       return parentMeta?.has_options;
     });
   }, [questions, question.sequence_num, questionTypes]);
@@ -88,7 +94,7 @@ if (!requiresOptionsDep) {
     );
   }
   const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
-  const canDelete = can("eeusurvey_app.delete_survey");
+  // const canDelete = can("eeusurvey_app.delete_survey");
 
   return (
     <div className="group relative rounded-2xl border border-gray-200/70 bg-white/90 backdrop-blur-sm p-6 shadow-sm hover:shadow-lg transition-all duration-300">
@@ -121,7 +127,7 @@ if (!requiresOptionsDep) {
               />
             </div>
 
-            {canDelete && (
+            {canEdit && (
               <button
                 type="button"
                 onClick={onDelete}
@@ -139,11 +145,11 @@ if (!requiresOptionsDep) {
               <label className={labelBase}>Type</label>
               <Select
                 className={inputBase}
-                value={question.type}
+                value={question.q_type}
                 disabled={loading || !canEdit}
                 onChange={(e) =>
                   onUpdate({
-                    type: e.target.value as QuestionType,
+                    q_type: e.target.value as QuestionType,
                     options: questionTypes.find(
                       (t) => t.value === e.target.value,
                     )?.has_options
@@ -178,43 +184,67 @@ if (!requiresOptionsDep) {
             </div>
 
             {/* Length Constraints */}
-            {!requiresOptionsDep && question.type !== "rating" && (
+            {question.q_type !== "rating" && (
               <div>
-                <label className={labelBase}>Length</label>
-                <div className="flex gap-3">
-                  <Input
-                    type="number"
-                    required={false}
-                    placeholder="Min"
+                {/* Validation Type */}
+                <div>
+                  <label className={labelBase}>Verifiable Type</label>
+                  <Select
                     className={inputBase}
-                    value={question.constraints?.min_length || ""}
+                    value={question.validation_type}
                     disabled={loading || !canEdit}
                     onChange={(e) =>
                       onUpdate({
-                        constraints: {
-                          ...question.constraints,
-                          min_length: Number(e.target.value),
-                        },
+                        validation_type: e.target.value,
                       })
                     }
-                  />
-                  <Input
-                    type="number"
-                    required={false}
-                    placeholder="Max"
-                    className={inputBase}
-                    value={question.constraints?.max_length || ""}
-                    disabled={loading || !canEdit}
-                    onChange={(e) =>
-                      onUpdate({
-                        constraints: {
-                          ...question.constraints,
-                          max_length: Number(e.target.value),
-                        },
-                      })
-                    }
-                  />
+                  >
+                    {validationType.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
+                {!requiresOptionsDep && question.q_type !== "rating" && (
+                  <>
+                    <label className={labelBase}>Length</label>
+                    <div className="flex gap-3">
+                      <Input
+                        type="number"
+                        required={false}
+                        placeholder="Min"
+                        className={inputBase}
+                        value={question.constraints?.min_length || ""}
+                        disabled={loading || !canEdit}
+                        onChange={(e) =>
+                          onUpdate({
+                            constraints: {
+                              ...question.constraints,
+                              min_length: Number(e.target.value),
+                            },
+                          })
+                        }
+                      />
+                      <Input
+                        type="number"
+                        required={false}
+                        placeholder="Max"
+                        className={inputBase}
+                        value={question.constraints?.max_length || ""}
+                        disabled={loading || !canEdit}
+                        onChange={(e) =>
+                          onUpdate({
+                            constraints: {
+                              ...question.constraints,
+                              max_length: Number(e.target.value),
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -232,7 +262,7 @@ if (!requiresOptionsDep) {
                     required={false}
                     className={`${inputBase} pl-9`}
                     placeholder="Type your placeholder..."
-                    value={question.placeholder}
+                    value={question.placeholder || ""}
                     disabled={loading || !canEdit}
                     onChange={(e) => onUpdate({ placeholder: e.target.value })}
                   />
@@ -245,8 +275,13 @@ if (!requiresOptionsDep) {
           <div className="flex flex-wrap gap-6 pt-2 border-t border-gray-100">
             {[
               { key: "required", label: "Required" },
-              { key: "verifiable", label: "Verifiable" },
               { key: "hidden", label: "Hidden" },
+              ...(question.q_type !== "rating"
+                ? [
+                    { key: "verifiable", label: "Verifiable" },
+                    { key: "is_unique", label: "Unique" },
+                  ]
+                : []),
             ].map((flag) => (
               <label
                 key={flag.key}
@@ -280,7 +315,7 @@ if (!requiresOptionsDep) {
               </label>
 
               <Select
-              required={false}
+                required={false}
                 className={inputBase}
                 value={question.depends_on || ""}
                 disabled={loading || !canEdit}

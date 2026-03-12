@@ -21,30 +21,33 @@ export type QuestionType = string;
 
 export interface SurveyQuestion {
   sequence_num: number;
-  type: QuestionType;
+  q_type: QuestionType;
   question: string;
   category: number; // category name
   placeholder?: string;
   scale?: string;
+  depends_on?: number;
+  validation_type: string;
   constraints: {
-    hidden:boolean;
+    hidden: boolean;
     verifiable: boolean;
+    is_unique: boolean;
     required: boolean;
     min_length?: number;
     max_length?: number;
   };
-  depends_on?: number;
   options: QuestionOption[];
 }
 
 export interface SkipLogicRule {
-  trigger_question_sn: number; // Which question triggers the rule
-  trigger_options_sn: number[] | number; // Value(s) that trigger the rule
+  id: string; // 
+  trigger_question_sn: number | null; // Which question triggers the rule
+  trigger_options_sn: number[]; // Value(s) that trigger the rule
   operator: string;
   action: string;
   target_questions_sn: number[]; // Only for JUMP_TO Action
 }
-export type Action = "SHOW" | "HIDE" | "JUMP_TO" | "ENABLE" | "REQUIRE";
+export type Action = "SHOW" | "HIDE";
 
 export interface SurveyExport {
   id?: string;

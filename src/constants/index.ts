@@ -1,6 +1,20 @@
-import type { SurveyExport, SurveyQuestion, QuestionOption } from "..";
+import type {
+  SurveyExport,
+  SurveyQuestion,
+  QuestionOption,
+  SkipLogicRule,
+} from "..";
 
-export const generateId = () => crypto.randomUUID();
+import { v4 as uuid } from "uuid";
+
+export const createEmptyRule = (): SkipLogicRule => ({
+  id: uuid(), // 🔥 Stable identity
+  trigger_question_sn: null,
+  operator: "EQUALS",
+  trigger_options_sn: [],
+  action: "SHOW",
+  target_questions_sn: [],
+});
 
 export const createEmptyOption = (sequence: number): QuestionOption => ({
   sequence,
@@ -15,11 +29,12 @@ export const createEmptyQuestion = (
   catId: number,
 ): SurveyQuestion => ({
   sequence_num: seq,
-  type: "text",
+  q_type: "text",
   question: `Queston #${seq}`,
   placeholder: "",
   category: catId,
-  constraints: { hidden: false, verifiable: false, required: true },
+  validation_type: "none",
+  constraints: { hidden: false, is_unique:false,verifiable: false, required: true },
   options: [],
 });
 

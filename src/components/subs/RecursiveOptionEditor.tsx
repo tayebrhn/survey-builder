@@ -49,7 +49,7 @@ export const RecursiveOptionEditor: React.FC<{
   }, [survey.questions, parentQuestionSN]);
 
   // Constraint: Cannot have fewer than 2 options
-  const isMinOptionsReached = normalizedOptions.length <= 2;
+  const isMinOptionsReached = normalizedOptions.length <= 2 && level == 0;
 
   if (!options) return <></>;
 

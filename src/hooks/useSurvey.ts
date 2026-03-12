@@ -9,57 +9,14 @@ import type {
 } from "..";
 import {
   createEmptyQuestion,
+  // createEmptyRule,
   getCSRFToken,
   initialSurveyState,
   MAX_FILE_SIZE_BYTES,
   MAX_FILE_SIZE_MB,
+  normalizeRule,
+  sanitizeSurvey,
 } from "..";
-
-const sanitizeSurvey = (survey: SurveyExport): SurveyExport => {
-  // let optionSequence = 1; // 🔥 shared counter for options + suboptions
-
-  return {
-    ...survey,
-
-    id: undefined,
-
-    metadata: {
-      ...survey.metadata,
-      is_active: survey.metadata.is_active ?? false,
-      created: new Date().toISOString(),
-      version: survey.metadata?.version ?? "1.0",
-    },
-    skip_logic: survey.skip_logic ?? [],
-    question_categories: survey.question_categories ?? [],
-    questions: survey.questions.map((q, qIndex) => ({
-      ...q,
-      sequence_num: ++qIndex,
-      constraints: { ...q.constraints, hidden: q.constraints.hidden || false },
-      options: Array.isArray(q.options)
-        ? q.options.map((opt, opIndex) => {
-            const currentOptSequence = ++opIndex;
-
-            return {
-              ...opt,
-              sequence: currentOptSequence,
-
-              sub_options: Array.isArray(opt.sub_options)
-                ? opt.sub_options.map((sub, subIndex) => {
-                    const currentSubSequence = ++subIndex;
-
-                    return {
-                      ...sub,
-                      sequence: currentSubSequence,
-                    };
-                  })
-                : [],
-            };
-          })
-        : [],
-    })),
-    key_choice: survey.key_choice ?? [],
-  };
-};
 
 export const useSurvey = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,6 +24,7 @@ export const useSurvey = () => {
   const [survey, setSurvey] = useState<SurveyExport>(initialSurveyState);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isEdit = Boolean(surveyId);
 
   useEffect(() => {
     if (!surveyId) return; // It's a new survey, do nothing
@@ -91,7 +49,7 @@ export const useSurvey = () => {
 
         const data = await response.json();
         // Update state with fetched data
-        setSurvey(data);
+        setSurvey(sanitizeSurvey(data, isEdit));
       } catch (err) {
         console.error(err);
         toast.error("Could not load survey data. refresh again.");
@@ -151,7 +109,7 @@ export const useSurvey = () => {
 
           /* ---------- Normalize survey ---------- */
 
-          const normalizedSurvey = sanitizeSurvey(parsed);
+          const normalizedSurvey = sanitizeSurvey(parsed, isEdit);
 
           setSurvey(normalizedSurvey);
           setSearchParams({});
@@ -337,33 +295,44 @@ export const useSurvey = () => {
   };
 
   const addSkipLogic = () => {
-    const newRule: SkipLogicRule = {
-      trigger_question_sn: 0,
-      operator: "EQUALS",
-      trigger_options_sn: [],
-      action: "SHOW",
-      target_questions_sn: [],
-    };
     setSurvey((prev) => ({
       ...prev,
-      skip_logic: [...(prev.skip_logic || []), newRule],
+      skip_logic: [
+        ...(prev.skip_logic ?? []),
+        normalizeRule({}), // let normalizer build defaults
+      ],
     }));
   };
 
-  const updateSkipLogic = (index: number, updates: Partial<SkipLogicRule>) => {
-    const newLogic = [...(survey.skip_logic || [])];
-    newLogic[index] = { ...newLogic[index], ...updates };
-    setSurvey({ ...survey, skip_logic: newLogic });
+  const updateSkipLogic = (ruleId: string, updates: Partial<SkipLogicRule>) => {
+    setSurvey((prev) => {
+      if (!prev.skip_logic) return prev;
+
+      const updatedLogic = prev.skip_logic.map((rule) => {
+        if (rule.id !== ruleId) return rule;
+
+        const merged = { ...rule, ...updates };
+
+        // 🔥 Normalization layer
+        return normalizeRule(merged);
+      });
+
+      return {
+        ...prev,
+        skip_logic: updatedLogic,
+      };
+    });
   };
 
-  const removeSkipLogic = (index: number) => {
-    const newLogic = (survey.skip_logic || []).filter((_, i) => i !== index);
-    setSurvey({ ...survey, skip_logic: newLogic });
+  const removeSkipLogic = (ruleId: string) => {
+    setSurvey((prev) => ({
+      ...prev,
+      skip_logic: prev.skip_logic?.filter((rule) => rule.id !== ruleId),
+    }));
   };
   const handleSave = async () => {
     setIsSaving(true);
 
-    const isEdit = Boolean(surveyId);
     const url = isEdit
       ? `${import.meta.env.VITE_SURVEY_API + surveyId}/`
       : import.meta.env.VITE_SURVEY_API;
@@ -371,6 +340,7 @@ export const useSurvey = () => {
     const method = isEdit ? "PUT" : "POST";
 
     try {
+      console.log(survey);
       const response = await fetch(url, {
         method,
         credentials: "include",
@@ -389,7 +359,7 @@ export const useSurvey = () => {
       const savedSurvey = await response.json();
 
       // 🔁 RESYNC: backend is source of truth
-      setSurvey(savedSurvey);
+      setSurvey(sanitizeSurvey(savedSurvey, isEdit));
 
       // 🆕 If it was a create, sync the ID (route or state)
       if (!isEdit && savedSurvey.id) {
