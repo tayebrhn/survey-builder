@@ -34,12 +34,18 @@ export const createEmptyQuestion = (
   placeholder: "",
   category: catId,
   validation_type: "none",
-  constraints: { hidden: false, is_unique:false,verifiable: false, required: true },
+  constraints: {
+    hidden: false,
+    is_unique: false,
+    verifiable: false,
+    required: true,
+  },
   options: [],
 });
 
 export const initialSurveyState: SurveyExport = {
   // id: generateId(),
+  has_responses: false,
   metadata: {
     title: "Untitled Survey",
     description: "",

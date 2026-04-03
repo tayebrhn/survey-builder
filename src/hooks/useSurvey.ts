@@ -145,8 +145,45 @@ export const useSurvey = () => {
         return `survey-v-${survey.metadata.version}-${dateStr}-${timeStr}.json`;
       };
 
+      // Replacer function to exclude specific values
+      const replacer = (
+        key: string,
+        value: string | number | boolean | any[] | null,
+      ) => {
+        // Exclude null values
+        // if (value === null) return undefined;
+
+        // Exclude empty strings
+        // if (value === "") return undefined;
+
+        // Exclude specific fields by name
+        if (key === "has_responses") {
+          return undefined;
+        }
+
+        // Exclude empty arrays
+        // if (Array.isArray(value) && value.length === 0) return undefined;
+
+        // Exclude empty objects
+        // if (
+        //   typeof value === "object" &&
+        //   value !== null &&
+        //   Object.keys(value).length === 0
+        // ) {
+        //   return undefined;
+        // }
+
+        // Exclude false boolean values (optional)
+        // if (value === false) return undefined;
+
+        // // Exclude specific values (e.g., -1 for default)
+        // if (value === -1) return undefined;
+
+        return value;
+      };
+
       const filename = getSafeFilename();
-      const json = JSON.stringify(survey, null, 2);
+      const json = JSON.stringify(survey, replacer, 2);
 
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -340,7 +377,6 @@ export const useSurvey = () => {
     const method = isEdit ? "PUT" : "POST";
 
     try {
-      console.log(survey);
       const response = await fetch(url, {
         method,
         credentials: "include",

@@ -103,7 +103,7 @@ export const sanitizeSurvey = (
     ...survey,
 
     id: undefined,
-
+    has_responses: survey.has_responses ?? false,
     metadata: {
       ...survey.metadata,
       is_active: survey.metadata.is_active ?? false,

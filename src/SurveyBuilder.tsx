@@ -18,8 +18,8 @@ import {
   SkipLogicTab,
   SurveyImportButton,
   SurveySkeleton,
-  useAuth,
   useSurveyContext,
+  useSurveyPermissions,
 } from ".";
 import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
 
@@ -27,7 +27,7 @@ type TabType = "settings" | "questions" | "logic" | "json";
 // type TabType = "settings" | "questions" | "logic";
 
 export default function SurveyBuilder() {
-  const { can } = useAuth();
+  const { canCreate } = useSurveyPermissions();
 
   const {
     survey,
@@ -81,7 +81,7 @@ export default function SurveyBuilder() {
     return <SurveySkeleton />;
   }
   if (isLoading) return <div>Loading permissions...</div>;
-  const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
+  const hasRes = survey.has_responses;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
@@ -93,7 +93,7 @@ export default function SurveyBuilder() {
               <h1 className="text-2xl font-bold">
                 {survey.metadata.title || "Untitled Survey"}
               </h1>
-              <p className="text-blue-100 text-sm">Builder v1.0</p>
+              <p className="text-blue-100 text-sm">Builder v1.1</p>
             </div>
             <div className="flex gap-3">
               {/* 3. Render Preview Button if surveyId exists */}
@@ -108,12 +108,14 @@ export default function SurveyBuilder() {
                   label="Preview"
                 />
               )}
-              <SurveyImportButton disabled={isSaving || isLoading} />
+              <SurveyImportButton
+                disabled={isSaving || isLoading || !canCreate}
+              />
 
               <HeaderActionButton
                 type="button"
                 onClick={exportSurveyToJSON}
-                disabled={isSaving || isLoading || !canEdit}
+                disabled={isSaving || isLoading}
                 icon={<Download size={18} />}
                 label="Export"
               />
@@ -121,7 +123,7 @@ export default function SurveyBuilder() {
               <HeaderActionButton
                 type="submit"
                 // onClick={handleCustomSave}
-                disabled={isSaving || isLoading || !canEdit}
+                disabled={isSaving || isLoading || !canCreate}
                 loading={isSaving}
                 icon={<Save size={18} />}
                 label="Save"

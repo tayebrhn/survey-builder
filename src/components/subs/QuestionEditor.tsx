@@ -37,7 +37,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onUpdate,
   onDelete,
 }) => {
-  const { can, isLoading: loading } = useAuth();
   const { survey } = useSurvey();
   const { meta, loading: metaLoading } = useMetaContext();
   const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
@@ -93,7 +92,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
       </div>
     );
   }
-  const canEdit = can("eeusurvey_app.change_survey") && !survey.has_responses;
+  // const canEdit = can("eeusurvey_app.change_survey");
   // const canDelete = can("eeusurvey_app.delete_survey");
 
   return (
@@ -115,27 +114,22 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 {question.sequence_num}
               </span>
             </div>
-
             <div className="flex-1">
               <Input
                 type="text"
                 placeholder="Enter your question..."
                 value={question.question}
                 onChange={(e) => onUpdate({ question: e.target.value })}
-                disabled={!canEdit}
                 className="w-full text-lg font-semibold bg-transparent border-b border-gray-200 focus:border-indigo-500 outline-none py-1 transition"
               />
             </div>
-
-            {canEdit && (
-              <button
-                type="button"
-                onClick={onDelete}
-                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onDelete}
+              className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+            >
+              <Trash2 size={18} />
+            </button>
           </div>
 
           {/* ================= SETTINGS ================= */}
@@ -146,7 +140,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
               <Select
                 className={inputBase}
                 value={question.q_type}
-                disabled={loading || !canEdit}
                 onChange={(e) =>
                   onUpdate({
                     q_type: e.target.value as QuestionType,
@@ -172,7 +165,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
               <Select
                 className={inputBase}
                 value={question.category}
-                disabled={loading || !canEdit}
                 onChange={(e) => onUpdate({ category: Number(e.target.value) })}
               >
                 {categories.map((cat) => (
@@ -192,7 +184,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                   <Select
                     className={inputBase}
                     value={question.validation_type}
-                    disabled={loading || !canEdit}
                     onChange={(e) =>
                       onUpdate({
                         validation_type: e.target.value,
@@ -216,7 +207,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                         placeholder="Min"
                         className={inputBase}
                         value={question.constraints?.min_length || ""}
-                        disabled={loading || !canEdit}
                         onChange={(e) =>
                           onUpdate({
                             constraints: {
@@ -232,7 +222,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                         placeholder="Max"
                         className={inputBase}
                         value={question.constraints?.max_length || ""}
-                        disabled={loading || !canEdit}
                         onChange={(e) =>
                           onUpdate({
                             constraints: {
@@ -263,7 +252,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                     className={`${inputBase} pl-9`}
                     placeholder="Type your placeholder..."
                     value={question.placeholder || ""}
-                    disabled={loading || !canEdit}
                     onChange={(e) => onUpdate({ placeholder: e.target.value })}
                   />
                 </div>
@@ -291,7 +279,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                   type="checkbox"
                   required={false}
                   checked={!!(question.constraints as any)?.[flag.key]}
-                  disabled={loading || !canEdit}
                   onChange={(e) =>
                     onUpdate({
                       constraints: {
@@ -318,7 +305,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 required={false}
                 className={inputBase}
                 value={question.depends_on || ""}
-                disabled={loading || !canEdit}
                 onChange={(e) =>
                   onUpdate({
                     depends_on: e.target.value

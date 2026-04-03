@@ -40,7 +40,7 @@ export interface SurveyQuestion {
 }
 
 export interface SkipLogicRule {
-  id: string; // 
+  id: string; //
   trigger_question_sn: number | null; // Which question triggers the rule
   trigger_options_sn: number[]; // Value(s) that trigger the rule
   operator: string;
@@ -51,7 +51,7 @@ export type Action = "SHOW" | "HIDE";
 
 export interface SurveyExport {
   id?: string;
-  has_responses?: boolean;
+  has_responses: boolean;
   metadata: {
     title: string;
     description: string;

@@ -75,3 +75,14 @@ export const useAuth = () => {
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
+
+export const useSurveyPermissions = () => {
+  const { can } = useAuth();
+  
+  return {
+    canEdit: can("eeusurvey_app.change_survey"),
+    canDelete: can("eeusurvey_app.delete_survey"),
+    canView: can("eeusurvey_app.view_survey"),
+    canCreate: can("eeusurvey_app.add_survey"),
+  };
+};
