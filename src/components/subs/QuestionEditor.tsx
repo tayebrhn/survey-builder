@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect } from "react";
+import React, { useMemo, useCallback, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Copy, GripVertical, TextCursor, Trash2 } from "lucide-react";
@@ -6,7 +6,8 @@ import type { SurveyQuestion, QuestionType } from "../..";
 import {
   RecursiveOptionEditor,
 } from "../..";
-import { useSurveyContext, useMetaContext } from "../..";
+import { useSurveyDataContext, useSurveyI18nContext, useMetaContext } from "../..";
+import { useDebouncedField } from "../../hooks/useDebouncedField";
 import { CheckboxRadio, Input, Select } from "../forms/FormsComponent";
 
 interface QuestionEditorProps {
@@ -38,7 +39,8 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onDuplicate,
 }) => {
   const { meta, loading: metaLoading } = useMetaContext();
-  const { survey, editingLanguage, getI18nValue, setI18nValue } = useSurveyContext();
+  const { survey } = useSurveyDataContext();
+  const { editingLanguage, getI18nValue, setI18nValue } = useSurveyI18nContext();
   const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
   const validationType = useMemo(() => meta?.validation_type || [], [meta]);
 
@@ -86,6 +88,39 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     [onUpdate],
   );
 
+  const baseLang = survey.metadata.language || "en";
+  const isTranslating = editingLanguage !== baseLang;
+
+  const questionText = useDebouncedField(
+    getI18nValue(question.question_i18n, question.question),
+    useCallback((val: string) => {
+      onUpdate({
+        question: isTranslating ? question.question : val,
+        question_i18n: setI18nValue(question.question_i18n, val),
+      });
+    }, [onUpdate, isTranslating, question.question, question.question_i18n, setI18nValue]),
+  );
+
+  const placeholderText = useDebouncedField(
+    getI18nValue(question.placeholder_i18n, question.placeholder || ""),
+    useCallback((val: string) => {
+      onUpdate({
+        placeholder: isTranslating ? question.placeholder : val,
+        placeholder_i18n: setI18nValue(question.placeholder_i18n, val),
+      });
+    }, [onUpdate, isTranslating, question.placeholder, question.placeholder_i18n, setI18nValue]),
+  );
+
+  const defaultValueText = useDebouncedField(
+    String(question.default_value ?? ""),
+    useCallback((val: string) => {
+      const parsed = question.q_type === "number"
+        ? (val === "" ? undefined : Number(val))
+        : val || undefined;
+      onUpdate({ default_value: parsed });
+    }, [onUpdate, question.q_type]),
+  );
+
   if (metaLoading) return <div>Loading permissions...</div>;
   if (questionTypes.length === 0) {
     return (
@@ -121,18 +156,11 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
               <Input
                 type="text"
                 placeholder="Enter your question..."
-                value={getI18nValue(question.question_i18n, question.question)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const baseLang = survey.metadata.language || "en";
-                  onUpdate({
-                    question: editingLanguage === baseLang ? val : question.question,
-                    question_i18n: setI18nValue(question.question_i18n, val),
-                  });
-                }}
+                value={questionText.value}
+                onChange={(e) => questionText.onChange(e.target.value)}
                 className="w-full text-lg font-semibold bg-transparent border-b border-gray-200 focus:border-indigo-500 outline-none py-1 transition"
               />
-              {editingLanguage !== (survey.metadata.language || "en") && !question.question_i18n?.[editingLanguage] && (
+              {isTranslating && !question.question_i18n?.[editingLanguage] && (
                 <button
                   type="button"
                   onClick={() => onUpdate({
@@ -283,18 +311,11 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                       required={false}
                       className={`${inputBase} pl-9`}
                       placeholder="Type your placeholder..."
-                      value={getI18nValue(question.placeholder_i18n, question.placeholder || "")}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const baseLang = survey.metadata.language || "en";
-                        onUpdate({
-                          placeholder: editingLanguage === baseLang ? val : question.placeholder,
-                          placeholder_i18n: setI18nValue(question.placeholder_i18n, val),
-                        });
-                      }}
+                      value={placeholderText.value}
+                      onChange={(e) => placeholderText.onChange(e.target.value)}
                     />
                   </div>
-                  {editingLanguage !== (survey.metadata.language || "en") && !question.placeholder_i18n?.[editingLanguage] && (
+                  {isTranslating && !question.placeholder_i18n?.[editingLanguage] && (
                     <button
                       type="button"
                       onClick={() => onUpdate({
@@ -320,13 +341,8 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 required={false}
                 className={inputBase}
                 placeholder="Optional default"
-                value={question.default_value ?? ""}
-                onChange={(e) => {
-                  const val = question.q_type === "number"
-                    ? (e.target.value === "" ? undefined : Number(e.target.value))
-                    : e.target.value || undefined;
-                  onUpdate({ default_value: val });
-                }}
+                value={defaultValueText.value}
+                onChange={(e) => defaultValueText.onChange(e.target.value)}
               />
             </div>
           )}

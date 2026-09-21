@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useCallback } from "react";
 import { Plus } from "lucide-react";
 import {
   DndContext,
@@ -14,18 +14,21 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { QuestionEditor } from "./subs/QuestionEditor";
-import { useSurveyContext } from "..";
+import { useSurveyDataContext, useSurveyActionsContext } from "..";
+
+const VIRTUALIZATION_THRESHOLD = 20;
 
 export const QuestionsTab: React.FC = () => {
+  const { survey } = useSurveyDataContext();
   const {
-    survey,
     addQuestion,
     updateQuestion,
     deleteQuestion,
     duplicateQuestion,
     reorderQuestions,
-  } = useSurveyContext();
+  } = useSurveyActionsContext();
   const hasRes = survey.has_responses;
 
   const sensors = useSensors(
@@ -33,16 +36,58 @@ export const QuestionsTab: React.FC = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
 
-    const oldIndex = survey.questions.findIndex((q) => q.sequence_num === active.id);
-    const newIndex = survey.questions.findIndex((q) => q.sequence_num === over.id);
-    if (oldIndex !== -1 && newIndex !== -1) {
-      reorderQuestions(oldIndex, newIndex);
-    }
-  };
+      const oldIndex = survey.questions.findIndex(
+        (q) => q.sequence_num === active.id,
+      );
+      const newIndex = survey.questions.findIndex(
+        (q) => q.sequence_num === over.id,
+      );
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderQuestions(oldIndex, newIndex);
+      }
+    },
+    [survey.questions, reorderQuestions],
+  );
+
+  const sortItems = useMemo(
+    () => survey.questions.map((q) => q.sequence_num),
+    [survey.questions],
+  );
+
+  const parentRef = React.useRef<HTMLDivElement>(null);
+  const useVirtual = survey.questions.length > VIRTUALIZATION_THRESHOLD;
+
+  const virtualizer = useVirtualizer({
+    count: survey.questions.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 280,
+    overscan: 5,
+    enabled: useVirtual,
+  });
+
+  const renderQuestion = useCallback(
+    (idx: number) => {
+      const q = survey.questions[idx];
+      return (
+        <QuestionEditor
+          key={q.sequence_num}
+          question={q}
+          index={idx}
+          categories={survey.question_categories || []}
+          questions={survey.questions || []}
+          onUpdate={(updates) => updateQuestion(idx, updates)}
+          onDelete={() => deleteQuestion(idx)}
+          onDuplicate={() => duplicateQuestion(idx)}
+        />
+      );
+    },
+    [survey, updateQuestion, deleteQuestion, duplicateQuestion],
+  );
 
   return (
     hasRes || (
@@ -64,23 +109,43 @@ export const QuestionsTab: React.FC = () => {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={survey.questions.map((q) => q.sequence_num)}
+              items={sortItems}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-4">
-                {survey.questions.map((q, idx) => (
-                  <QuestionEditor
-                    key={q.sequence_num}
-                    question={q}
-                    index={idx}
-                    categories={survey.question_categories || []}
-                    questions={survey.questions || []}
-                    onUpdate={(updates) => updateQuestion(idx, updates)}
-                    onDelete={() => deleteQuestion(idx)}
-                    onDuplicate={() => duplicateQuestion(idx)}
-                  />
-                ))}
-              </div>
+              {useVirtual ? (
+                <div
+                  ref={parentRef}
+                  className="space-y-4 overflow-auto"
+                  style={{ height: "calc(100vh - 280px)" }}
+                >
+                  <div
+                    style={{
+                      height: `${virtualizer.getTotalSize()}px`,
+                      width: "100%",
+                      position: "relative",
+                    }}
+                  >
+                    {virtualizer.getVirtualItems().map((virtualRow) => (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        {renderQuestion(virtualRow.index)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {survey.questions.map((_, idx) => renderQuestion(idx))}
+                </div>
+              )}
             </SortableContext>
           </DndContext>
         )}
