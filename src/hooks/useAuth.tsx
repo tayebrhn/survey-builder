@@ -30,28 +30,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch user data from the Django endpoint we created above
-    // Django Session cookies are sent automatically by the browser
-    fetch(import.meta.env.VITE_SURVEY_API_USER, {
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCSRFToken()!,
-      },
-    })
-      .then((res) => {
-        if (res.status === 403 || res.status === 401) {
-          // Session expired or not logged in
-          window.location.href = ":8000/admin/login/";
-          return null;
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(import.meta.env.VITE_SURVEY_API_USER, {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken() || "",
+          },
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          redirectToLogin();
+          return;
         }
-        return res.json();
-      })
-      .then((data) => {
-        if (data) setUser(data);
+
+        const text = await response.text();
+
+        if (text.includes("login")) {
+          redirectToLogin();
+          return;
+        }
+
+        const data = JSON.parse(text);
+        setUser(data);
+      } catch (err) {
+        console.error("Auth error:", err);
+        redirectToLogin(); // optional fallback
+      } finally {
         setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
+      }
+    };
+
+    const redirectToLogin = () => {
+      const loginUrl = import.meta.env.VITE_ADMIN_LOGIN_URL || `${window.location.origin}/admin/login/`;
+      if (window.location.href.startsWith(loginUrl)) return;
+      const next = encodeURIComponent(window.location.href);
+      window.location.href = `${loginUrl}?next=${next}`;
+    };
+
+    checkAuth();
   }, []);
   // Permission Logic
   const can = useCallback(
@@ -78,7 +96,7 @@ export const useAuth = () => {
 
 export const useSurveyPermissions = () => {
   const { can } = useAuth();
-  
+
   return {
     canEdit: can("eeusurvey_app.change_survey"),
     canDelete: can("eeusurvey_app.delete_survey"),
