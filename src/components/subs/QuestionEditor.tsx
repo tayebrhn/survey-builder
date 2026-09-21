@@ -34,6 +34,7 @@ const labelBase =
 
 export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   question,
+  index,
   categories,
   questions,
   onUpdate,
