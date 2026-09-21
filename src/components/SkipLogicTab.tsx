@@ -1,25 +1,13 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { SearchableMultiSelect } from "./subs/SearchableMultiSelect";
 import { useMetaContext, useSurveyContext } from "..";
-
-/* -------------------------------
-  Types & Interfaces
--------------------------------- */
-// Minimal interface based on usage to replace `any`
-interface SkipLogicRule {
-  id: string;
-  trigger_question_sn?: number | null;
-  trigger_options_sn?: number[];
-  target_questions_sn?: number[];
-  operator?: string;
-  action?: string;
-  [key: string]: any;
-}
+import type { SkipLogicRule } from "..";
+import { validateRule } from "../utils";
 
 /* -------------------------------
   Reusable Tailwind classes
--------------------------------- */
+ -------------------------------- */
 const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition disabled:bg-gray-100 disabled:cursor-not-allowed";
 
@@ -27,20 +15,24 @@ const labelClass =
   "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
 
 export const SkipLogicTab: React.FC = () => {
-  const { survey, updateSkipLogic, removeSkipLogic, addSkipLogic } =
-    useSurveyContext();
+  const {
+    survey: { questions, skip_logic, has_responses },
+    updateSkipLogic,
+    removeSkipLogic,
+    addSkipLogic,
+  } = useSurveyContext();
   const { meta } = useMetaContext();
-  const hasRes = survey.has_responses;
+  const hasRes = has_responses;
 
   const conditions = meta?.skip_logic?.conditions ?? [];
   const actions = meta?.skip_logic?.actions ?? [];
 
   // const canEdit = can("eeusurvey_app.change_survey");
-  // const hasRes = survey.has_responses;
+  // const hasRes = has_responses;
 
   const questionsWithOptions = useMemo(
-    () => survey.questions.filter((q) => q.options.length),
-    [survey.questions],
+    () => questions.filter((q) => q.options.length),
+    [questions],
   );
 
   // Memoize valid actions so we don't filter them inside the map for every rule
@@ -49,25 +41,18 @@ export const SkipLogicTab: React.FC = () => {
     [actions],
   );
 
-  const validateRule = (rule: SkipLogicRule) => {
-    if (!rule.trigger_question_sn) return "Trigger question required";
-    if (!rule.trigger_options_sn?.length) return "Select at least one answer";
-    if (!rule.target_questions_sn?.length) return "Select at least one target";
-    return null;
-  };
-
   return (
     hasRes || (
       <div className="space-y-6">
         {/* HEADER */}
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-bold text-gray-900">
-            Conditional Logic ({survey.skip_logic?.length ?? 0})
+            Conditional Logic ({skip_logic?.length ?? 0})
           </h3>
         </div>
 
         {/* EMPTY STATE */}
-        {!survey.skip_logic?.length && (
+        {!skip_logic?.length && (
           <div className="text-gray-400 text-center py-10 border-2 border-dashed border-gray-200 rounded-xl">
             No conditional rules defined. Click "Add Rule" to get started.
           </div>
@@ -75,15 +60,19 @@ export const SkipLogicTab: React.FC = () => {
 
         {/* RULES LIST */}
         <div className="space-y-5">
-          {survey.skip_logic?.map((rule: SkipLogicRule, index: number) => {
+          {skip_logic?.map((rule: SkipLogicRule, index: number) => {
             const error = validateRule(rule);
-            const triggerQuestion = survey.questions.find(
+            const triggerQuestion = questions.find(
               (q) => q.sequence_num === rule.trigger_question_sn,
             );
 
             const validTargets = rule.trigger_question_sn
-              ? survey.questions
-                  .filter((q) => q.sequence_num > rule.trigger_question_sn!)
+              ? questions
+                  .filter(
+                    (q) =>
+                      q.sequence_num > rule.trigger_question_sn! &&
+                      q.category >= triggerQuestion!.category,
+                  )
                   .map((q) => ({
                     value: q.sequence_num,
                     label: `Q${q.sequence_num}: ${q.question}`,

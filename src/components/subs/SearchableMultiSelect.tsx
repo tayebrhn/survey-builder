@@ -46,7 +46,7 @@ export const SearchableMultiSelect: React.FC<Props> = ({
           onChange={(e) => setQuery(e.target.value)}
           displayValue={() =>
             options
-              .filter((o) => values.includes(o.value ?? o.label))
+              .filter((o) => values.includes(o.value))
               .map((o) => o.label)
               .join(", ")
           }
