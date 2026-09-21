@@ -6,6 +6,7 @@ export { SettingsTab } from "./components/SettingsTab";
 export { QuestionsTab } from "./components/QuestionsTab";
 export { SkipLogicTab } from "./components/SkipLogicTab";
 export { JsonTab } from "./components/JsonTab";
+export { PreviewPanel } from "./components/PreviewPanel";
 export { SurveySkeleton } from "./components/SurveySkeleton";
 export * from "./hooks";
 export * from "./context";

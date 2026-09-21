@@ -27,13 +27,16 @@ export const createEmptyOption = (sequence: number): QuestionOption => ({
 export const createEmptyQuestion = (
   seq: number,
   catId: number,
+  prevQ?:SurveyQuestion
 ): SurveyQuestion => ({
   sequence_num: seq,
-  q_type: "text",
-  question: `Queston #${seq}`,
+  q_type: prevQ?.q_type||"text",
+  question: `Question #${seq}`,
   placeholder: "",
-  category: catId,
+  category: prevQ?.category||catId,
   validation_type: "none",
+  shuffle_options: false,
+  default_value: undefined,
   constraints: {
     hidden: false,
     is_unique: false,
@@ -44,7 +47,6 @@ export const createEmptyQuestion = (
 });
 
 export const initialSurveyState: SurveyExport = {
-  // id: generateId(),
   has_responses: false,
   metadata: {
     title: "Untitled Survey",
@@ -52,10 +54,12 @@ export const initialSurveyState: SurveyExport = {
     instructions: "",
     version: "1.0",
     created: new Date().toISOString().split("T")[0],
-    start: "", // Initialized
-    end: "", // Initialized
+    start: "",
+    end: "",
     is_active: false,
     language: "en",
+    is_multilingual: false,
+    available_languages: ["en"],
   },
   questions: [createEmptyQuestion(1, 1)],
   question_categories: [{ cat_number: 1, name: "General" }],

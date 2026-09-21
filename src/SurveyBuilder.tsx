@@ -7,11 +7,12 @@ import {
   Loader,
   Download,
   Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   JsonTab,
-  // JsonTab,
   MetaProvider,
+  PreviewPanel,
   QuestionsTab,
   RequiredProvider,
   SettingsTab,
@@ -21,13 +22,13 @@ import {
   useSurveyContext,
   useSurveyPermissions,
 } from ".";
-import { HeaderActionButton } from "./components/subs/HeaderActionButton ";
+import { HeaderActionButton } from "./components/subs/HeaderActionButton";
+import CopyableLink from "./components/subs/CopyableLink";
 
 type TabType = "settings" | "questions" | "logic" | "json";
-// type TabType = "settings" | "questions" | "logic";
 
 export default function SurveyBuilder() {
-  const { canCreate } = useSurveyPermissions();
+  const { canCreate, canEdit } = useSurveyPermissions();
 
   const {
     survey,
@@ -38,6 +39,7 @@ export default function SurveyBuilder() {
     isLoading,
   } = useSurveyContext();
   const [activeTab, setActiveTab] = useState<TabType>("settings");
+  const [showPreview, setShowPreview] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleCustomSave = (e: React.FormEvent) => {
@@ -80,8 +82,6 @@ export default function SurveyBuilder() {
   if (isLoading) {
     return <SurveySkeleton />;
   }
-  if (isLoading) return <div>Loading permissions...</div>;
-  const hasRes = survey.has_responses;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
@@ -95,21 +95,38 @@ export default function SurveyBuilder() {
               </h1>
               <p className="text-blue-100 text-sm">Builder v1.1</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-2 w-full max-w-xs">
+              <HeaderActionButton
+                type="button"
+                onClick={() => setShowPreview(!showPreview)}
+                disabled={isSaving || isLoading}
+                icon={showPreview ? <EyeOff size={18} /> : <Eye size={18} />}
+                label={showPreview ? "Hide Preview" : "Live Preview"}
+              />
               {/* 3. Render Preview Button if surveyId exists */}
               {surveyId && (
-                <HeaderActionButton
-                  type="button"
-                  onClick={() =>
-                    window.open(`/admin/survey-preview/${surveyId}`, "_blank")
-                  }
-                  disabled={isSaving || isLoading}
-                  icon={<Eye size={18} />}
-                  label="Preview"
-                />
+                <>
+                  <HeaderActionButton
+                    type="button"
+                    onClick={() =>
+                      window.open(
+                        `/admin/survey-preview/survey/${surveyId}`,
+                        "_blank",
+                      )
+                    }
+                    disabled={isSaving || isLoading}
+                    icon={<Eye size={18} />}
+                    label="Full Preview"
+                  />
+                  <CopyableLink
+                    url={import.meta.env.VITE_SURVEY_URL+surveyId}
+                    isDisabled={false}
+                    label="Survey link"
+                  />
+                </>
               )}
               <SurveyImportButton
-                disabled={isSaving || isLoading || !canCreate}
+                disabled={isSaving || isLoading || !canCreate || !canEdit}
               />
 
               <HeaderActionButton
@@ -123,7 +140,7 @@ export default function SurveyBuilder() {
               <HeaderActionButton
                 type="submit"
                 // onClick={handleCustomSave}
-                disabled={isSaving || isLoading || !canCreate}
+                disabled={isSaving || isLoading || !canCreate || !canEdit}
                 loading={isSaving}
                 icon={<Save size={18} />}
                 label="Save"
@@ -201,7 +218,7 @@ export default function SurveyBuilder() {
 
           {/* Content Area - Show loading for active tab */}
           <MetaProvider>
-            <div className="p-8 min-h-125">
+            <div className={`p-8 min-h-125 ${showPreview ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : ""}`}>
               {isLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
@@ -240,6 +257,11 @@ export default function SurveyBuilder() {
                       <JsonTab />
                     </div>
                   </RequiredProvider>
+                  {showPreview && (
+                    <div className="lg:sticky lg:top-8">
+                      <PreviewPanel />
+                    </div>
+                  )}
                 </>
               )}
             </div>
