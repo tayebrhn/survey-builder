@@ -83,10 +83,12 @@ export const QuestionsTab: React.FC = () => {
           onUpdate={(updates) => updateQuestion(idx, updates)}
           onDelete={() => deleteQuestion(idx)}
           onDuplicate={() => duplicateQuestion(idx)}
+          onMoveUp={() => idx > 0 && reorderQuestions(idx, idx - 1)}
+          onMoveDown={() => idx < survey.questions.length - 1 && reorderQuestions(idx, idx + 1)}
         />
       );
     },
-    [survey, updateQuestion, deleteQuestion, duplicateQuestion],
+    [survey, updateQuestion, deleteQuestion, duplicateQuestion, reorderQuestions],
   );
 
   return (

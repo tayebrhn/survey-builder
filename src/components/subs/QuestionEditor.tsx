@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Copy, GripVertical, TextCursor, Trash2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Copy, GripVertical, TextCursor, Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../..";
 import {
   RecursiveOptionEditor,
@@ -13,11 +13,13 @@ import { CheckboxRadio, Input, Select } from "../forms/FormsComponent";
 interface QuestionEditorProps {
   question: SurveyQuestion;
   index: number;
-  categories: Array<{ cat_number: number; name: string }>;
   questions: SurveyQuestion[];
+  categories: Array<{ cat_number: number; name: string }>;
   onUpdate: (updates: Partial<SurveyQuestion>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }
 
 /* -------------------------------
@@ -37,6 +39,8 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onUpdate,
   onDelete,
   onDuplicate,
+  onMoveUp,
+  onMoveDown,
 }) => {
   const { meta, loading: metaLoading } = useMetaContext();
   const { survey } = useSurveyDataContext();
@@ -137,11 +141,29 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
 
       <div className="flex gap-5">
         <div
-          className="pt-2 cursor-move text-gray-300 hover:text-gray-500 transition"
+          className="pt-2 cursor-move text-gray-300 hover:text-gray-500 transition flex flex-col items-center gap-0.5"
           {...attributes}
           {...listeners}
         >
           <GripVertical size={18} />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+            disabled={index === 0}
+            className="p-0.5 text-gray-300 hover:text-indigo-600 disabled:opacity-20 disabled:cursor-not-allowed transition"
+            title="Move up"
+          >
+            <ArrowUp size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+            disabled={index === questions.length - 1}
+            className="p-0.5 text-gray-300 hover:text-indigo-600 disabled:opacity-20 disabled:cursor-not-allowed transition"
+            title="Move down"
+          >
+            <ArrowDown size={14} />
+          </button>
         </div>
 
         <div className="flex-1 space-y-6">
