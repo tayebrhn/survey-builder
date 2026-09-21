@@ -1,6 +1,13 @@
+import { useCallback } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { Switch } from "@headlessui/react";
-import { useSurveyContext, useMetaContext } from "..";
+import {
+  useSurveyDataContext,
+  useSurveyActionsContext,
+  useSurveyI18nContext,
+  useMetaContext,
+} from "..";
+import { useDebouncedField } from "../hooks/useDebouncedField";
 import { Input, Select, Textarea } from "./forms/FormsComponent";
 
 /* -------------------------------
@@ -18,9 +25,8 @@ const labelBase =
   "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
 
 export const SettingsTab: React.FC = () => {
+  const { survey, setSurvey } = useSurveyDataContext();
   const {
-    survey,
-    setSurvey,
     updateMetadata,
     addCategory,
     updateCategory,
@@ -28,36 +34,81 @@ export const SettingsTab: React.FC = () => {
     addKeyChoice,
     updateKeyChoice,
     removeKeyChoice,
+  } = useSurveyActionsContext();
+  const {
     editingLanguage,
     setEditingLanguage,
     getI18nValue,
     setI18nValue,
     getTranslationCompleteness,
-  } = useSurveyContext();
+  } = useSurveyI18nContext();
+
   const canRemoveCategory = (survey?.question_categories?.length ?? 0) > 1;
   const { meta } = useMetaContext();
   const hasRes = survey.has_responses;
 
   const languages = meta?.languages || [];
   const isMultilingual = survey.metadata.is_multilingual ?? false;
-  const availableLanguages = survey.metadata.available_languages || [survey.metadata.language || "en"];
+  const availableLanguages = survey.metadata.available_languages || [
+    survey.metadata.language || "en",
+  ];
+  const baseLang = survey.metadata.language || "en";
+  const isTranslating = editingLanguage !== baseLang;
 
-  const handleMultilingualToggle = (checked: boolean) => {
-    updateMetadata("is_multilingual", checked);
-    if (checked) {
-      const lang = survey.metadata.language || "en";
-      updateMetadata("available_languages", availableLanguages.includes(lang) ? availableLanguages : [...availableLanguages, lang]);
-    }
-  };
+  const handleMultilingualToggle = useCallback(
+    (checked: boolean) => {
+      updateMetadata("is_multilingual", checked);
+      if (checked) {
+        const lang = survey.metadata.language || "en";
+        updateMetadata(
+          "available_languages",
+          availableLanguages.includes(lang)
+            ? availableLanguages
+            : [...availableLanguages, lang],
+        );
+      }
+    },
+    [updateMetadata, survey.metadata.language, availableLanguages],
+  );
 
-  const toggleAvailableLanguage = (code: string) => {
-    const current = availableLanguages;
-    const next = current.includes(code)
-      ? current.filter((c) => c !== code)
-      : [...current, code];
-    if (next.length === 0) return;
-    updateMetadata("available_languages", next);
-  };
+  const toggleAvailableLanguage = useCallback(
+    (code: string) => {
+      const current = availableLanguages;
+      const next = current.includes(code)
+        ? current.filter((c) => c !== code)
+        : [...current, code];
+      if (next.length === 0) return;
+      updateMetadata("available_languages", next);
+    },
+    [availableLanguages, updateMetadata],
+  );
+
+  const titleField = useDebouncedField(
+    getI18nValue(survey.metadata.title_i18n, survey.metadata.title),
+    useCallback(
+      (val: string) => {
+        updateMetadata("title", isTranslating ? survey.metadata.title : val);
+        updateMetadata("title_i18n", setI18nValue(survey.metadata.title_i18n, val));
+      },
+      [updateMetadata, isTranslating, survey.metadata.title, survey.metadata.title_i18n, setI18nValue],
+    ),
+  );
+
+  const descriptionField = useDebouncedField(
+    getI18nValue(survey.metadata.description_i18n, survey.metadata.description),
+    useCallback(
+      (val: string) => {
+        updateMetadata("description", isTranslating ? survey.metadata.description : val);
+        updateMetadata("description_i18n", setI18nValue(survey.metadata.description_i18n, val));
+      },
+      [updateMetadata, isTranslating, survey.metadata.description, survey.metadata.description_i18n, setI18nValue],
+    ),
+  );
+
+  const versionField = useDebouncedField(
+    survey.metadata.version,
+    useCallback((val: string) => updateMetadata("version", val), [updateMetadata]),
+  );
 
   return (
     <div className="space-y-6">
@@ -74,17 +125,18 @@ export const SettingsTab: React.FC = () => {
               <Input
                 type="text"
                 className={inputBase}
-                value={getI18nValue(survey.metadata.title_i18n, survey.metadata.title)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  updateMetadata("title", editingLanguage === (survey.metadata.language || "en") ? val : survey.metadata.title);
-                  updateMetadata("title_i18n", setI18nValue(survey.metadata.title_i18n, val));
-                }}
+                value={titleField.value}
+                onChange={(e) => titleField.onChange(e.target.value)}
               />
-              {editingLanguage !== (survey.metadata.language || "en") && !survey.metadata.title_i18n?.[editingLanguage] && (
+              {isTranslating && !survey.metadata.title_i18n?.[editingLanguage] && (
                 <button
                   type="button"
-                  onClick={() => updateMetadata("title_i18n", { ...(survey.metadata.title_i18n || {}), [editingLanguage]: survey.metadata.title })}
+                  onClick={() =>
+                    updateMetadata("title_i18n", {
+                      ...(survey.metadata.title_i18n || {}),
+                      [editingLanguage]: survey.metadata.title,
+                    })
+                  }
                   title="Copy from base language"
                   className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
                 >
@@ -101,17 +153,18 @@ export const SettingsTab: React.FC = () => {
                 name="description"
                 rows={3}
                 className={textareaBase}
-                value={getI18nValue(survey.metadata.description_i18n, survey.metadata.description)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  updateMetadata("description", editingLanguage === (survey.metadata.language || "en") ? val : survey.metadata.description);
-                  updateMetadata("description_i18n", setI18nValue(survey.metadata.description_i18n, val));
-                }}
+                value={descriptionField.value}
+                onChange={(e) => descriptionField.onChange(e.target.value)}
               />
-              {editingLanguage !== (survey.metadata.language || "en") && !survey.metadata.description_i18n?.[editingLanguage] && (
+              {isTranslating && !survey.metadata.description_i18n?.[editingLanguage] && (
                 <button
                   type="button"
-                  onClick={() => updateMetadata("description_i18n", { ...(survey.metadata.description_i18n || {}), [editingLanguage]: survey.metadata.description })}
+                  onClick={() =>
+                    updateMetadata("description_i18n", {
+                      ...(survey.metadata.description_i18n || {}),
+                      [editingLanguage]: survey.metadata.description,
+                    })
+                  }
                   title="Copy from base language"
                   className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0 mt-2"
                 >
@@ -127,8 +180,8 @@ export const SettingsTab: React.FC = () => {
               <Input
                 type="text"
                 className={inputBase}
-                value={survey.metadata.version}
-                onChange={(e) => updateMetadata("version", e.target.value)}
+                value={versionField.value}
+                onChange={(e) => versionField.onChange(e.target.value)}
               />
             </div>
 
@@ -182,9 +235,12 @@ export const SettingsTab: React.FC = () => {
               <label className={labelBase}>Available Languages</label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {languages.map((lang) => {
-                  const isBase = lang.value === (survey.metadata.language || "en");
-                  const { total, translated } = getTranslationCompleteness(lang.value);
-                  const pct = total > 0 ? Math.round((translated / total) * 100) : 0;
+                  const isBase = lang.value === baseLang;
+                  const { total, translated } = getTranslationCompleteness(
+                    lang.value,
+                  );
+                  const pct =
+                    total > 0 ? Math.round((translated / total) * 100) : 0;
                   return (
                     <button
                       key={lang.value}
@@ -197,11 +253,19 @@ export const SettingsTab: React.FC = () => {
                       }`}
                     >
                       {lang.label}
-                      {isMultilingual && !isBase && availableLanguages.includes(lang.value) && (
-                        <span className={`ml-1 text-xs ${availableLanguages.includes(lang.value) ? "opacity-80" : ""}`}>
-                          {pct}%
-                        </span>
-                      )}
+                      {isMultilingual &&
+                        !isBase &&
+                        availableLanguages.includes(lang.value) && (
+                          <span
+                            className={`ml-1 text-xs ${
+                              availableLanguages.includes(lang.value)
+                                ? "opacity-80"
+                                : ""
+                            }`}
+                          >
+                            {pct}%
+                          </span>
+                        )}
                     </button>
                   );
                 })}
@@ -307,58 +371,38 @@ export const SettingsTab: React.FC = () => {
 
             <div className="space-y-3">
               {survey?.question_categories?.map((cat, idx) => (
-                <div
+                <CategoryRow
                   key={cat.cat_number}
-                  className="flex items-center gap-3 p-3 rounded-lg
-                         bg-gray-50 border border-gray-200"
-                >
-                  <span
-                    className="inline-flex items-center justify-center
-                           w-12 h-8 rounded-md bg-indigo-100
-                           text-indigo-700 text-sm font-bold shrink-0"
-                  >
-                    #{cat.cat_number}
-                  </span>
-                  <Input
-                    type="text"
-                    className={inputBase}
-                    value={getI18nValue(cat.name_i18n, cat.name)}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (editingLanguage === (survey.metadata.language || "en")) {
-                        updateCategory(idx, val);
-                      }
-                      const newCats = [...(survey.question_categories || [])];
-                      newCats[idx] = { ...newCats[idx], name_i18n: setI18nValue(newCats[idx].name_i18n, val) };
-                      setSurvey({ ...survey, question_categories: newCats });
-                    }}
-                  />
-                  {editingLanguage !== (survey.metadata.language || "en") && !cat.name_i18n?.[editingLanguage] && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newCats = [...(survey.question_categories || [])];
-                        newCats[idx] = { ...newCats[idx], name_i18n: { ...(cat.name_i18n || {}), [editingLanguage]: cat.name } };
-                        setSurvey({ ...survey, question_categories: newCats });
-                      }}
-                      title="Copy from base language"
-                      className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  )}
-                  {canRemoveCategory && (
-                  <button
-                    type="button"
-                    onClick={() => removeCategory(idx)}
-                    title="Remove category"
-                    className="p-2 rounded-md text-gray-400
-                             hover:text-red-600 hover:bg-red-50 transition"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  )}
-                </div>
+                  cat={cat}
+                  idx={idx}
+                  isTranslating={isTranslating}
+                  editingLanguage={editingLanguage}
+                  baseLang={baseLang}
+                  canRemove={canRemoveCategory}
+                  onUpdate={(name) => updateCategory(idx, name)}
+                  onRemove={() => removeCategory(idx)}
+                  onCopyI18n={() => {
+                    const newCats = [...(survey.question_categories || [])];
+                    newCats[idx] = {
+                      ...newCats[idx],
+                      name_i18n: {
+                        ...(cat.name_i18n || {}),
+                        [editingLanguage]: cat.name,
+                      },
+                    };
+                    setSurvey({ ...survey, question_categories: newCats });
+                  }}
+                  onI18nChange={(val) => {
+                    const newCats = [...(survey.question_categories || [])];
+                    newCats[idx] = {
+                      ...newCats[idx],
+                      name_i18n: setI18nValue(newCats[idx].name_i18n, val),
+                    };
+                    setSurvey({ ...survey, question_categories: newCats });
+                  }}
+                  getI18nValue={getI18nValue}
+                  setI18nValue={setI18nValue}
+                />
               ))}
             </div>
 
@@ -381,66 +425,41 @@ export const SettingsTab: React.FC = () => {
               )}
 
               {survey.key_choice.map((choice, idx) => (
-                <div
+                <KeyChoiceRow
                   key={idx}
-                  className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto]
-                         gap-3 items-end p-4 rounded-lg
-                         border border-gray-200 bg-gray-50"
-                >
-                  <div>
-                    <label className={labelBase}>Key</label>
-                    <input
-                      className={`${inputBase} font-mono`}
-                      value={choice.key}
-                      onChange={(e) =>
-                        updateKeyChoice(idx, "key", e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelBase}>Label</label>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        className={inputBase}
-                        value={getI18nValue(choice.description_i18n, choice.description)}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (editingLanguage === (survey.metadata.language || "en")) {
-                            updateKeyChoice(idx, "description", val);
-                          }
-                          const newChoices = [...survey.key_choice];
-                          newChoices[idx] = { ...newChoices[idx], description_i18n: setI18nValue(newChoices[idx].description_i18n, val) };
-                          setSurvey({ ...survey, key_choice: newChoices });
-                        }}
-                        required={false}
-                      />
-                      {editingLanguage !== (survey.metadata.language || "en") && !choice.description_i18n?.[editingLanguage] && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newChoices = [...survey.key_choice];
-                            newChoices[idx] = { ...newChoices[idx], description_i18n: { ...(choice.description_i18n || {}), [editingLanguage]: choice.description } };
-                            setSurvey({ ...survey, key_choice: newChoices });
-                          }}
-                          title="Copy from base language"
-                          className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
-                        >
-                          <Copy size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeKeyChoice(idx)}
-                    title="Remove key choice"
-                    className="p-2 rounded-md text-gray-400
-                           hover:text-red-600 hover:bg-red-50 transition"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
+                  choice={choice}
+                  idx={idx}
+                  isTranslating={isTranslating}
+                  editingLanguage={editingLanguage}
+                  onRemove={() => removeKeyChoice(idx)}
+                  onKeyChange={(val) => updateKeyChoice(idx, "key", val)}
+                  onCopyI18n={() => {
+                    const newChoices = [...survey.key_choice];
+                    newChoices[idx] = {
+                      ...newChoices[idx],
+                      description_i18n: {
+                        ...(choice.description_i18n || {}),
+                        [editingLanguage]: choice.description,
+                      },
+                    };
+                    setSurvey({ ...survey, key_choice: newChoices });
+                  }}
+                  onI18nChange={(val) => {
+                    const newChoices = [...survey.key_choice];
+                    newChoices[idx] = {
+                      ...newChoices[idx],
+                      description_i18n: setI18nValue(
+                        newChoices[idx].description_i18n,
+                        val,
+                      ),
+                    };
+                    setSurvey({ ...survey, key_choice: newChoices });
+                  }}
+                  onDescriptionChange={(val) =>
+                    updateKeyChoice(idx, "description", val)
+                  }
+                  getI18nValue={getI18nValue}
+                />
               ))}
 
               <button
@@ -459,3 +478,129 @@ export const SettingsTab: React.FC = () => {
     </div>
   );
 };
+
+/* ---------- Sub-components to prevent unnecessary re-renders ---------- */
+
+const CategoryRow: React.FC<{
+  cat: { cat_number: number; name: string; name_i18n?: Record<string, string> };
+  idx: number;
+  isTranslating: boolean;
+  editingLanguage: string;
+  baseLang: string;
+  canRemove: boolean;
+  onUpdate: (name: string) => void;
+  onRemove: () => void;
+  onCopyI18n: () => void;
+  onI18nChange: (val: string) => void;
+  getI18nValue: (map: Record<string, string> | undefined, fallback: string) => string;
+  setI18nValue: (map: Record<string, string> | undefined, value: string) => Record<string, string>;
+}> = React.memo(({ cat, idx, isTranslating, editingLanguage, canRemove, onUpdate, onRemove, onCopyI18n, onI18nChange, getI18nValue }) => {
+  const nameField = useDebouncedField(
+    getI18nValue(cat.name_i18n, cat.name),
+    useCallback((val: string) => {
+      if (!isTranslating) onUpdate(val);
+    }, [isTranslating, onUpdate]),
+  );
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+      <span className="inline-flex items-center justify-center w-12 h-8 rounded-md bg-indigo-100 text-indigo-700 text-sm font-bold shrink-0">
+        #{cat.cat_number}
+      </span>
+      <Input
+        type="text"
+        className={inputBase}
+        value={nameField.value}
+        onChange={(e) => nameField.onChange(e.target.value)}
+      />
+      {isTranslating && !cat.name_i18n?.[editingLanguage] && (
+        <button
+          type="button"
+          onClick={onCopyI18n}
+          title="Copy from base language"
+          className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
+        >
+          <Copy size={14} />
+        </button>
+      )}
+      {canRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          title="Remove category"
+          className="p-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+        >
+          <Trash2 size={18} />
+        </button>
+      )}
+    </div>
+  );
+});
+
+const KeyChoiceRow: React.FC<{
+  choice: { key: string; description: string; description_i18n?: Record<string, string> };
+  idx: number;
+  isTranslating: boolean;
+  editingLanguage: string;
+  onRemove: () => void;
+  onKeyChange: (val: string) => void;
+  onCopyI18n: () => void;
+  onI18nChange: (val: string) => void;
+  onDescriptionChange: (val: string) => void;
+  getI18nValue: (map: Record<string, string> | undefined, fallback: string) => string;
+}> = React.memo(({ choice, idx, isTranslating, editingLanguage, onRemove, onKeyChange, onCopyI18n, onI18nChange, onDescriptionChange, getI18nValue }) => {
+  const keyField = useDebouncedField(
+    choice.key,
+    useCallback((val: string) => onKeyChange(val), [onKeyChange]),
+  );
+
+  const descField = useDebouncedField(
+    getI18nValue(choice.description_i18n, choice.description),
+    useCallback((val: string) => {
+      if (!isTranslating) onDescriptionChange(val);
+    }, [isTranslating, onDescriptionChange]),
+  );
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3 items-end p-4 rounded-lg border border-gray-200 bg-gray-50">
+      <div>
+        <label className={labelBase}>Key</label>
+        <input
+          className={`${inputBase} font-mono`}
+          value={keyField.value}
+          onChange={(e) => keyField.onChange(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className={labelBase}>Label</label>
+        <div className="flex items-center gap-1">
+          <Input
+            className={inputBase}
+            value={descField.value}
+            onChange={(e) => descField.onChange(e.target.value)}
+            required={false}
+          />
+          {isTranslating && !choice.description_i18n?.[editingLanguage] && (
+            <button
+              type="button"
+              onClick={onCopyI18n}
+              title="Copy from base language"
+              className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
+            >
+              <Copy size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        title="Remove key choice"
+        className="p-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+      >
+        <Trash2 size={18} />
+      </button>
+    </div>
+  );
+});
