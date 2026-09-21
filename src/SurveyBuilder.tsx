@@ -37,6 +37,7 @@ export default function SurveyBuilder() {
     surveyId,
     isSaving,
     isLoading,
+    isDirty,
   } = useSurveyContext();
   const [activeTab, setActiveTab] = useState<TabType>("settings");
   const [showPreview, setShowPreview] = useState(false);
@@ -93,7 +94,14 @@ export default function SurveyBuilder() {
               <h1 className="text-2xl font-bold">
                 {survey.metadata.title || "Untitled Survey"}
               </h1>
-              <p className="text-blue-100 text-sm">Builder v1.1</p>
+              <p className="text-blue-100 text-sm">
+                Builder v1.1
+                {isDirty && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-300 text-yellow-900">
+                    Unsaved changes
+                  </span>
+                )}
+              </p>
             </div>
             <div className="flex flex-col gap-2 w-full max-w-xs">
               <HeaderActionButton

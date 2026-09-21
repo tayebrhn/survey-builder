@@ -4,6 +4,8 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
+  useRef,
 } from "react";
 import { getCSRFToken } from "..";
 
@@ -17,9 +19,10 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  // We only need the checker function
   can: (permission: string) => boolean;
 }
+
+const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -28,50 +31,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch(import.meta.env.VITE_SURVEY_API_USER, {
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCSRFToken() || "",
-          },
-        });
-
-        if (response.status === 401 || response.status === 403) {
-          redirectToLogin();
-          return;
-        }
-
-        const text = await response.text();
-
-        if (text.includes("login")) {
-          redirectToLogin();
-          return;
-        }
-
-        const data = JSON.parse(text);
-        setUser(data);
-      } catch (err) {
-        console.error("Auth error:", err);
-        redirectToLogin(); // optional fallback
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    const redirectToLogin = () => {
-      const loginUrl = import.meta.env.VITE_ADMIN_LOGIN_URL || `${window.location.origin}/admin/login/`;
-      if (window.location.href.startsWith(loginUrl)) return;
-      const next = encodeURIComponent(window.location.href);
-      window.location.href = `${loginUrl}?next=${next}`;
-    };
-
-    checkAuth();
+  const redirectToLogin = useCallback(() => {
+    const loginUrl =
+      import.meta.env.VITE_ADMIN_LOGIN_URL ||
+      `${window.location.origin}/admin/login/`;
+    if (window.location.href.startsWith(loginUrl)) return;
+    const next = encodeURIComponent(window.location.href);
+    window.location.href = `${loginUrl}?next=${next}`;
   }, []);
-  // Permission Logic
+
+  const checkAuth = useCallback(async () => {
+    try {
+      const response = await fetch(import.meta.env.VITE_SURVEY_API_USER, {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken() || "",
+        },
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        redirectToLogin();
+        return;
+      }
+
+      const text = await response.text();
+
+      if (text.includes("login")) {
+        redirectToLogin();
+        return;
+      }
+
+      const data = JSON.parse(text);
+      setUser(data);
+    } catch (err) {
+      console.error("Auth error:", err);
+      redirectToLogin();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [redirectToLogin]);
+
+  // Initial check + periodic session validation
+  useEffect(() => {
+    checkAuth();
+
+    intervalRef.current = setInterval(() => {
+      checkAuth();
+    }, SESSION_CHECK_INTERVAL_MS);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [checkAuth]);
+
   const can = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
@@ -97,10 +112,13 @@ export const useAuth = () => {
 export const useSurveyPermissions = () => {
   const { can } = useAuth();
 
-  return {
-    canEdit: can("eeusurvey_app.change_survey"),
-    canDelete: can("eeusurvey_app.delete_survey"),
-    canView: can("eeusurvey_app.view_survey"),
-    canCreate: can("eeusurvey_app.add_survey"),
-  };
+  return useMemo(
+    () => ({
+      canEdit: can("eeusurvey_app.change_survey"),
+      canDelete: can("eeusurvey_app.delete_survey"),
+      canView: can("eeusurvey_app.view_survey"),
+      canCreate: can("eeusurvey_app.add_survey"),
+    }),
+    [can],
+  );
 };
