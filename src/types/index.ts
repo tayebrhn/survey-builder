@@ -1,6 +1,8 @@
 export interface QuestionCategory {
   cat_number: number;
   name: string;
+  name_i18n?: Record<string, string>;
+  description_i18n?: Record<string, string>;
 }
 
 export interface QuestionOption {
@@ -10,24 +12,29 @@ export interface QuestionOption {
   is_other: boolean;
   dependency_option?: number;
   sub_options: QuestionOption[] | [];
+  label_i18n?: Record<string, string>;
+  text_i18n?: Record<string, string>;
 }
 
 export interface KeyChoice {
   key: string;
   description: string;
+  description_i18n?: Record<string, string>;
 }
 
-export type QuestionType = string;
+export type QuestionType = "multi_select" | "single_choice" | "drop_down" | "rating" | "number" | "text" | "text_area";
 
 export interface SurveyQuestion {
   sequence_num: number;
   q_type: QuestionType;
   question: string;
-  category: number; // category name
+  category: number;
   placeholder?: string;
   scale?: string;
   depends_on?: number;
   validation_type: string;
+  shuffle_options?: boolean;
+  default_value?: string | number | string[];
   constraints: {
     hidden: boolean;
     verifiable: boolean;
@@ -37,15 +44,17 @@ export interface SurveyQuestion {
     max_length?: number;
   };
   options: QuestionOption[];
+  question_i18n?: Record<string, string>;
+  placeholder_i18n?: Record<string, string>;
 }
 
 export interface SkipLogicRule {
-  id: string; //
-  trigger_question_sn: number | null; // Which question triggers the rule
-  trigger_options_sn: number[]; // Value(s) that trigger the rule
+  id: string;
+  trigger_question_sn: number | null;
+  trigger_options_sn: number[];
   operator: string;
   action: string;
-  target_questions_sn: number[]; // Only for JUMP_TO Action
+  target_questions_sn: number[];
 }
 export type Action = "SHOW" | "HIDE";
 
@@ -57,13 +66,18 @@ export interface SurveyExport {
     description: string;
     instructions: string;
     version: string;
-    created: string; // ISO date string, e.g., "2025-08-12"
-    start: string; // Added
+    created: string;
+    start: string;
     end: string;
     is_active: boolean;
     language: string;
+    is_multilingual?: boolean;
+    available_languages?: string[];
+    title_i18n?: Record<string, string>;
+    description_i18n?: Record<string, string>;
+    instructions_i18n?: Record<string, string>;
   };
-  skip_logic?: SkipLogicRule[]; // Rules where this question is the TARGET
+  skip_logic?: SkipLogicRule[];
   question_categories?: QuestionCategory[];
   questions: SurveyQuestion[];
   key_choice: KeyChoice[];
@@ -119,26 +133,4 @@ export const QUESTION_TYPE_CONFIG: Record<QuestionType, QuestionTypeConfig> = {
     hasScale: false,
     minMaxAllowed: true,
   },
-};
-
-export type BuilderQuestion = {
-  sequence_num: number;
-  type: QuestionType;
-  question: string;
-  category: number;
-
-  placeholder?: string;
-  scale?: string;
-
-  required: boolean;
-  verifiable: boolean;
-  min_length?: number;
-  max_length?: number;
-
-  options: {
-    text: string;
-    label: string;
-    is_other?: boolean;
-    sub_options?: BuilderQuestion["options"];
-  }[];
 };

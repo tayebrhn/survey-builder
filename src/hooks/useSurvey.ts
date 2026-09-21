@@ -9,7 +9,6 @@ import type {
 } from "..";
 import {
   createEmptyQuestion,
-  // createEmptyRule,
   getCSRFToken,
   initialSurveyState,
   MAX_FILE_SIZE_BYTES,
@@ -24,23 +23,28 @@ export const useSurvey = () => {
   const [survey, setSurvey] = useState<SurveyExport>(initialSurveyState);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingLanguage, setEditingLanguage] = useState<string>("en");
   const isEdit = Boolean(surveyId);
 
   useEffect(() => {
-    if (!surveyId) return; // It's a new survey, do nothing
+    if (!surveyId) return;
+
+    const controller = new AbortController();
 
     const fetchSurvey = async () => {
       setIsLoading(true);
       try {
         const token = localStorage.getItem("access_token");
+        const csrfToken = getCSRFToken() || "";
         const response = await fetch(
           `${import.meta.env.VITE_SURVEY_API + surveyId}/`,
           {
             credentials: "include",
+            signal: controller.signal,
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
-              "X-CSRFToken": getCSRFToken()!,
+              "X-CSRFToken": csrfToken,
             },
           },
         );
@@ -48,17 +52,19 @@ export const useSurvey = () => {
         if (!response.ok) throw new Error("Failed to load survey");
 
         const data = await response.json();
-        // Update state with fetched data
-        setSurvey(sanitizeSurvey(data, isEdit));
-      } catch (err) {
-        console.error(err);
-        toast.error("Could not load survey data. refresh again.");
+        setSurvey(sanitizeSurvey(data));
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          console.error(err);
+          toast.error("Could not load survey data. refresh again.");
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchSurvey();
+    return () => controller.abort();
   }, [surveyId]);
 
   /* ----------------------------------
@@ -109,8 +115,8 @@ export const useSurvey = () => {
 
           /* ---------- Normalize survey ---------- */
 
-          const normalizedSurvey = sanitizeSurvey(parsed, isEdit);
-
+          const normalizedSurvey = sanitizeSurvey(parsed);
+          normalizedSurvey.has_responses = false;
           setSurvey(normalizedSurvey);
           setSearchParams({});
           resolve();
@@ -142,7 +148,7 @@ export const useSurvey = () => {
         const now = new Date();
         const dateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
         const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "-"); // HH-MM-SS
-        return `survey-v-${survey.metadata.version}-${dateStr}-${timeStr}.json`;
+        return `survey-${survey.metadata.version}-${dateStr}-${timeStr}.json`;
       };
 
       // Replacer function to exclude specific values
@@ -226,9 +232,11 @@ export const useSurvey = () => {
   };
 
   const updateCategory = (index: number, name: string) => {
-    const newCats = [...(survey.question_categories || [])];
-    newCats[index].name = name;
-    setSurvey({ ...survey, question_categories: newCats });
+    setSurvey((prev) => {
+      const newCats = [...(prev.question_categories || [])];
+      newCats[index] = { ...newCats[index], name };
+      return { ...prev, question_categories: newCats };
+    });
   };
 
   const removeCategory = (index: number) => {
@@ -293,9 +301,11 @@ export const useSurvey = () => {
     field: keyof KeyChoice,
     value: string,
   ) => {
-    const newChoices = [...survey.key_choice];
-    newChoices[index] = { ...newChoices[index], [field]: value };
-    setSurvey({ ...survey, key_choice: newChoices });
+    setSurvey((prev) => {
+      const newChoices = [...prev.key_choice];
+      newChoices[index] = { ...newChoices[index], [field]: value };
+      return { ...prev, key_choice: newChoices };
+    });
   };
 
   const removeKeyChoice = (index: number) => {
@@ -306,29 +316,63 @@ export const useSurvey = () => {
   };
 
   const addQuestion = () => {
+    const prevQ = survey.questions[survey.questions.length - 1];
     const defaultCat = survey.question_categories?.[0]?.cat_number || 1;
     setSurvey((prev) => ({
       ...prev,
       questions: [
         ...prev.questions,
-        createEmptyQuestion(prev.questions.length + 1, defaultCat),
+        createEmptyQuestion(prev.questions.length + 1, defaultCat,prevQ),
       ],
     }));
   };
 
   const updateQuestion = (index: number, updates: Partial<SurveyQuestion>) => {
-    const newQuestions = [...survey.questions];
-    newQuestions[index] = { ...newQuestions[index], ...updates };
-    setSurvey({ ...survey, questions: newQuestions });
+    setSurvey((prev) => {
+      const newQuestions = [...prev.questions];
+      newQuestions[index] = { ...newQuestions[index], ...updates };
+      return { ...prev, questions: newQuestions };
+    });
   };
 
   const deleteQuestion = (index: number) => {
-    const newQuestions = survey.questions.filter((_, i) => i !== index);
-    const resequenced = newQuestions.map((q, i) => ({
-      ...q,
-      sequence_num: i + 1,
-    }));
-    setSurvey({ ...survey, questions: resequenced });
+    setSurvey((prev) => {
+      const newQuestions = prev.questions.filter((_, i) => i !== index);
+      const resequenced = newQuestions.map((q, i) => ({
+        ...q,
+        sequence_num: i + 1,
+      }));
+      return { ...prev, questions: resequenced };
+    });
+  };
+
+  const duplicateQuestion = (index: number) => {
+    setSurvey((prev) => {
+      const original = prev.questions[index];
+      const duplicate: SurveyQuestion = {
+        ...JSON.parse(JSON.stringify(original)),
+        sequence_num: 0,
+        question: `${original.question} (copy)`,
+      };
+      const newQuestions = [...prev.questions];
+      newQuestions.splice(index + 1, 0, duplicate);
+      return {
+        ...prev,
+        questions: newQuestions.map((q, i) => ({ ...q, sequence_num: i + 1 })),
+      };
+    });
+  };
+
+  const reorderQuestions = (fromIndex: number, toIndex: number) => {
+    setSurvey((prev) => {
+      const newQuestions = [...prev.questions];
+      const [moved] = newQuestions.splice(fromIndex, 1);
+      newQuestions.splice(toIndex, 0, moved);
+      return {
+        ...prev,
+        questions: newQuestions.map((q, i) => ({ ...q, sequence_num: i + 1 })),
+      };
+    });
   };
 
   const addSkipLogic = () => {
@@ -367,7 +411,78 @@ export const useSurvey = () => {
       skip_logic: prev.skip_logic?.filter((rule) => rule.id !== ruleId),
     }));
   };
+
+  // --- i18n helpers ---
+
+  const getI18nValue = (
+    i18nMap: Record<string, string> | undefined,
+    fallback: string,
+  ): string => {
+    if (!i18nMap) return fallback;
+    return i18nMap[editingLanguage] ?? fallback;
+  };
+
+  const setI18nValue = (
+    i18nMap: Record<string, string> | undefined,
+    value: string,
+  ): Record<string, string> => {
+    const map = { ...(i18nMap || {}) };
+    map[editingLanguage] = value;
+    return map;
+  };
+
+  const getTranslationCompleteness = (lang: string): { total: number; translated: number } => {
+    let total = 0;
+    let translated = 0;
+
+    const check = (map: Record<string, string> | undefined) => {
+      total++;
+      if (map?.[lang]) translated++;
+    };
+
+    check(survey.metadata.title_i18n);
+    check(survey.metadata.description_i18n);
+    check(survey.metadata.instructions_i18n);
+
+    survey.question_categories?.forEach((cat) => {
+      check(cat.name_i18n);
+      check(cat.description_i18n);
+    });
+
+    survey.questions.forEach((q) => {
+      check(q.question_i18n);
+      check(q.placeholder_i18n);
+      q.options.forEach((opt) => {
+        check(opt.label_i18n);
+        check(opt.text_i18n);
+      });
+    });
+
+    survey.key_choice.forEach((kc) => {
+      check(kc.description_i18n);
+    });
+
+    return { total, translated };
+  };
+
   const handleSave = async () => {
+    if (survey.metadata.is_multilingual && survey.metadata.available_languages) {
+      const baseLang = survey.metadata.language || "en";
+      const incompleteLangs = survey.metadata.available_languages.filter(
+        (lang) => lang !== baseLang,
+      ).filter((lang) => {
+        const { total, translated } = getTranslationCompleteness(lang);
+        return total > 0 && translated < total * 0.5;
+      });
+
+      if (incompleteLangs.length > 0) {
+        const confirmed = window.confirm(
+          `The following languages have less than 50% translations: ${incompleteLangs.join(", ")}. Save anyway?`,
+        );
+        if (!confirmed) return;
+      }
+    }
+
     setIsSaving(true);
 
     const url = isEdit
@@ -382,20 +497,20 @@ export const useSurvey = () => {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken": getCSRFToken()!,
+          "X-CSRFToken": getCSRFToken() || "",
         },
         body: JSON.stringify(survey),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to save survey.");
+        throw new Error(errorData.details || "Failed to save survey.");
       }
 
       const savedSurvey = await response.json();
 
       // 🔁 RESYNC: backend is source of truth
-      setSurvey(sanitizeSurvey(savedSurvey, isEdit));
+      setSurvey(sanitizeSurvey(savedSurvey));
 
       // 🆕 If it was a create, sync the ID (route or state)
       if (!isEdit && savedSurvey.id) {
@@ -419,6 +534,7 @@ export const useSurvey = () => {
 
   return {
     survey,
+    setSurvey,
     updateMetadata,
     addCategory,
     updateCategory,
@@ -429,6 +545,8 @@ export const useSurvey = () => {
     addQuestion,
     updateQuestion,
     deleteQuestion,
+    duplicateQuestion,
+    reorderQuestions,
     addSkipLogic,
     updateSkipLogic,
     removeSkipLogic,
@@ -438,5 +556,10 @@ export const useSurvey = () => {
     surveyId,
     isSaving,
     isLoading,
+    editingLanguage,
+    setEditingLanguage,
+    getI18nValue,
+    setI18nValue,
+    getTranslationCompleteness,
   };
 };

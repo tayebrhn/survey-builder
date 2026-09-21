@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Trash2,
@@ -8,10 +8,11 @@ import {
   CheckSquare,
   Square,
   Link,
-  AlertCircle,
+  Copy,
 } from "lucide-react";
-import { useAuth, useSurveyContext, type QuestionOption } from "../../";
-import { Input, Select } from "../forms/FormsComponent";
+import { toast } from "sonner";
+import { useSurveyContext, type QuestionOption } from "../../";
+import { CheckboxRadio, Input, Select } from "../forms/FormsComponent";
 
 const MAX_NESTING_LEVEL = 2;
 
@@ -21,8 +22,7 @@ export const RecursiveOptionEditor: React.FC<{
   parentQuestionSN?: number;
   level?: number;
 }> = ({ options, parentQuestionSN, onChange, level = 0 }) => {
-  const { can, isLoading } = useAuth();
-  const { survey } = useSurveyContext();
+  const { survey, editingLanguage, getI18nValue, setI18nValue } = useSurveyContext();
 
   // --- State ---
   const [isRootExpanded, setIsRootExpanded] = useState(false);
@@ -53,7 +53,7 @@ export const RecursiveOptionEditor: React.FC<{
   }, [survey.questions, parentQuestionSN]);
 
   // Constraint: Cannot have fewer than 2 options
-  const isMinOptionsReached = normalizedOptions.length <= 2 && level == 0;
+  // const isMinOptionsReached = normalizedOptions.length <= 2 && level == 0;
 
   if (!options) return <></>;
 
@@ -82,13 +82,12 @@ export const RecursiveOptionEditor: React.FC<{
     const remainingCount = normalizedOptions.length - selectedIndices.size;
 
     if (remainingCount < 2) {
-      alert(
-        "Validation Error: You must maintain at least 2 options at this level.",
-      );
+      toast.error("You must maintain at least 2 options at this level.");
       return;
     }
 
-    if (window.confirm(`Delete ${selectedIndices.size} items?`)) {
+    const confirmed = window.confirm(`Delete ${selectedIndices.size} items?`);
+    if (confirmed) {
       const newOptions = options.filter((_, i) => !selectedIndices.has(i));
       const resequenced = newOptions.map((opt, i) => ({
         ...opt,
@@ -99,14 +98,6 @@ export const RecursiveOptionEditor: React.FC<{
       setIsSelectionMode(false);
     }
   };
-
-  if (isLoading)
-    return (
-      <div className="p-4 text-sm text-gray-500">Loading permissions...</div>
-    );
-
-  const canEdit = can("eeusurvey_app.change_survey");
-  const hasRes = survey.has_responses;
 
   return (
     <div
@@ -136,37 +127,33 @@ export const RecursiveOptionEditor: React.FC<{
 
           {isRootExpanded && (
             <div className="flex gap-2 ml-4">
-              {!canEdit ||
-                hasRes ||
-                (isSelectionMode && selectedIndices.size > 0 ? (
-                  <button
-                    type="button"
-                    onClick={deleteSelected}
-                    disabled={
-                      normalizedOptions.length - selectedIndices.size < 2
-                    }
-                    className={`text-xs px-2 py-1 rounded flex items-center gap-1 transition-all ${
-                      normalizedOptions.length - selectedIndices.size < 2
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        : "bg-red-600 text-white hover:bg-red-700 shadow-sm"
-                    }`}
-                  >
-                    <Trash2 size={12} /> Delete Selected
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowBulkPaste(!showBulkPaste)}
-                    className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
-                  >
-                    <Clipboard size={12} /> Bulk Paste
-                  </button>
-                ))}
+              {isSelectionMode && selectedIndices.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  disabled={normalizedOptions.length - selectedIndices.size < 2}
+                  className={`text-xs px-2 py-1 rounded flex items-center gap-1 transition-all ${
+                    normalizedOptions.length - selectedIndices.size < 2
+                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : "bg-red-600 text-white hover:bg-red-700 shadow-sm"
+                  }`}
+                >
+                  <Trash2 size={12} /> Delete Selected
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowBulkPaste(!showBulkPaste)}
+                  className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+                >
+                  <Clipboard size={12} /> Bulk Paste
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        {canEdit && isRootExpanded && normalizedOptions.length > 0 && (
+        {isRootExpanded && normalizedOptions.length > 0 && (
           <button
             type="button"
             onClick={() => {
@@ -226,7 +213,7 @@ export const RecursiveOptionEditor: React.FC<{
                       const parts = l.split("|");
                       return {
                         sequence: normalizedOptions.length + i + 1,
-                        label: parts.length > 1 ? parts[0].trim() : "",
+                        label: parts[0].trim(),
                         text:
                           parts.length > 1 ? parts[1].trim() : parts[0].trim(),
                         is_other: false,
@@ -305,30 +292,81 @@ export const RecursiveOptionEditor: React.FC<{
                     <Input
                       type="text"
                       placeholder="Label"
-                      className="border p-1 rounded text-sm w-28 font-mono"
-                      value={opt.label}
+                      className="border p-1 rounded text-sm flex-1"
+                      value={getI18nValue(opt.label_i18n, opt.label)}
                       onChange={(e) => {
                         const newOpts = [...normalizedOptions];
-                        newOpts[idx].label = e.target.value;
+                        const val = e.target.value;
+                        const baseLang = survey.metadata.language || "en";
+                        newOpts[idx].label = editingLanguage === baseLang ? val : opt.label;
+                        newOpts[idx].label_i18n = setI18nValue(opt.label_i18n, val);
                         onChange(newOpts);
                       }}
-                      disabled={!canEdit || hasRes}
                     />
+                    {editingLanguage !== (survey.metadata.language || "en") && !opt.label_i18n?.[editingLanguage] && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newOpts = [...normalizedOptions];
+                          newOpts[idx].label_i18n = { ...(opt.label_i18n || {}), [editingLanguage]: opt.label };
+                          onChange(newOpts);
+                        }}
+                        title="Copy from base language"
+                        className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    )}
 
                     <Input
                       type="text"
                       placeholder="Option Text"
                       className="border p-1 rounded text-sm flex-1"
-                      value={opt.text}
+                      value={getI18nValue(opt.text_i18n, opt.text)}
                       onChange={(e) => {
                         const newOpts = [...normalizedOptions];
-                        newOpts[idx].text = e.target.value;
+                        const val = e.target.value;
+                        const baseLang = survey.metadata.language || "en";
+                        newOpts[idx].text = editingLanguage === baseLang ? val : opt.text;
+                        newOpts[idx].text_i18n = setI18nValue(opt.text_i18n, val);
                         onChange(newOpts);
                       }}
-                      disabled={!canEdit || hasRes}
                       required
                     />
-
+                    {editingLanguage !== (survey.metadata.language || "en") && !opt.text_i18n?.[editingLanguage] && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newOpts = [...normalizedOptions];
+                          newOpts[idx].text_i18n = { ...(opt.text_i18n || {}), [editingLanguage]: opt.text };
+                          onChange(newOpts);
+                        }}
+                        title="Copy from base language"
+                        className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    )}
+                    <div className="flex flex-col items-start gap-1">
+                      <CheckboxRadio
+                        id={`is-other-${idx}`} // Unique ID for accessibility
+                        groupName="Other"
+                        type="checkbox"
+                        required={false}
+                        checked={opt.is_other}
+                        onChange={(e) => {
+                          const newOpts = [...normalizedOptions];
+                          newOpts[idx].is_other = e.target.checked;
+                          onChange(newOpts);
+                        }}
+                      />
+                      <label
+                        htmlFor={`is-other-${idx}`}
+                        className="text-xs font-medium text-gray-600 cursor-pointer"
+                      >
+                        Mark as "Other"
+                      </label>
+                    </div>
                     {/* Dependency Selection */}
                     {level === 0 &&
                       parentOptions &&
@@ -347,7 +385,6 @@ export const RecursiveOptionEditor: React.FC<{
                                 : undefined;
                               onChange(newOpts);
                             }}
-                            disabled={!canEdit || hasRes}
                           >
                             <option value="">-- Parent --</option>
                             {parentOptions.map((pOpt) => (
@@ -359,7 +396,7 @@ export const RecursiveOptionEditor: React.FC<{
                         </div>
                       )}
 
-                    {!isSelectionMode && canEdit && !hasRes && (
+                    {!isSelectionMode && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {canHaveChildren && (
                           <button
@@ -397,19 +434,12 @@ export const RecursiveOptionEditor: React.FC<{
                         <button
                           type="button"
                           onClick={() => {
-                            if (!isMinOptionsReached) {
-                              onChange(
-                                normalizedOptions.filter((_, i) => i !== idx),
-                              );
-                            }
+                            onChange(
+                              normalizedOptions.filter((_, i) => i !== idx),
+                            );
                           }}
-                          disabled={isMinOptionsReached}
-                          className={`p-1 rounded ${isMinOptionsReached ? "text-gray-200 cursor-not-allowed" : "text-red-400 hover:bg-red-50"}`}
-                          title={
-                            isMinOptionsReached
-                              ? "Minimum 2 options required"
-                              : "Delete"
-                          }
+                          className="text-red-400 hover:bg-red-50"
+                          title="Delete"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -433,7 +463,7 @@ export const RecursiveOptionEditor: React.FC<{
             })}
           </div>
 
-          {!canEdit || hasRes || isSelectionMode || (
+          {isSelectionMode || (
             <button
               type="button"
               onClick={() =>
@@ -455,14 +485,13 @@ export const RecursiveOptionEditor: React.FC<{
           )}
         </div>
       )}
-
       {/* Visual Indicator for user */}
-      {isRootExpanded && isMinOptionsReached && !isSelectionMode && (
+      {/* {isRootExpanded && isMinOptionsReached && !isSelectionMode && (
         <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-1 pl-2">
           <AlertCircle size={10} />
           <span>Minimum 2 options required</span>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

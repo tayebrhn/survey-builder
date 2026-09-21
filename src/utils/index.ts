@@ -9,7 +9,7 @@ export const getCSRFToken = () => {
 };
 
 export const validateRule = (rule: SkipLogicRule) => {
-  if (!rule.trigger_question_sn) return "Trigger question required";
+  if (rule.trigger_question_sn == null) return "Trigger question required";
   if (!rule.operator) return "Condition required";
   if (!rule.trigger_options_sn?.length)
     return "At least one answer must be selected";
@@ -50,55 +50,9 @@ const normalizeSkipLogic = (
   return [normalizeRule(input)];
 };
 
-const incrementVersion = (
-  version?: string | null,
-  type: "major" | "minor" | "patch" = "patch",
-): string => {
-  if (!version) return "1.0.0";
-
-  let [major = 1, minor = 0, patch = 0] = version.split(".").map(Number);
-
-  if ([major, minor, patch].some(Number.isNaN)) {
-    return "1.0.0";
-  }
-
-  switch (type) {
-    case "major":
-      major++;
-      minor = 0;
-      patch = 0;
-      break;
-
-    case "minor":
-      minor++;
-      patch = 0;
-      break;
-
-    case "patch":
-      patch++;
-
-      // rollover patch at 9
-      if (patch > 9) {
-        patch = 0;
-        minor++;
-      }
-
-      // rollover minor at 9
-      if (minor > 9) {
-        minor = 0;
-        major++;
-      }
-      break;
-  }
-
-  return `${major}.${minor}.${patch}`;
-};
-
 export const sanitizeSurvey = (
   survey: SurveyExport,
-  editSurv: boolean,
 ): SurveyExport => {
-  // let optionSequence = 1; // 🔥 shared counter for options + suboptions
   return {
     ...survey,
 
@@ -107,31 +61,45 @@ export const sanitizeSurvey = (
     metadata: {
       ...survey.metadata,
       is_active: survey.metadata.is_active ?? false,
-      created: new Date().toISOString(),
-      version: editSurv
-        ? survey.metadata?.version
-        : incrementVersion(survey.metadata?.version),
+      is_multilingual: survey.metadata.is_multilingual ?? false,
+      available_languages: survey.metadata.available_languages ?? [survey.metadata.language ?? "en"],
+      created: survey.metadata.created || new Date().toISOString(),
+      version: survey.metadata?.version ?? "v.1.0",
+      title_i18n: survey.metadata.title_i18n ?? undefined,
+      description_i18n: survey.metadata.description_i18n ?? undefined,
+      instructions_i18n: survey.metadata.instructions_i18n ?? undefined,
     },
-    question_categories: survey.question_categories ?? [],
+
+    question_categories: (survey.question_categories ?? []).map((cat) => ({
+      ...cat,
+      name_i18n: cat.name_i18n ?? undefined,
+      description_i18n: cat.description_i18n ?? undefined,
+    })),
     questions: survey.questions.map((q, qIndex) => ({
       ...q,
-      sequence_num: ++qIndex,
+      sequence_num: qIndex + 1,
       constraints: { ...q.constraints, hidden: q.constraints.hidden || false },
+      question_i18n: q.question_i18n ?? undefined,
+      placeholder_i18n: q.placeholder_i18n ?? undefined,
       options: Array.isArray(q.options)
         ? q.options.map((opt, opIndex) => {
-            const currentOptSequence = ++opIndex;
+            const currentOptSequence = opIndex + 1;
 
             return {
               ...opt,
               sequence: currentOptSequence,
+              label_i18n: opt.label_i18n ?? undefined,
+              text_i18n: opt.text_i18n ?? undefined,
 
               sub_options: Array.isArray(opt.sub_options)
                 ? opt.sub_options.map((sub, subIndex) => {
-                    const currentSubSequence = ++subIndex;
+                    const currentSubSequence = subIndex + 1;
 
                     return {
                       ...sub,
                       sequence: currentSubSequence,
+                      label_i18n: sub.label_i18n ?? undefined,
+                      text_i18n: sub.text_i18n ?? undefined,
                     };
                   })
                 : [],
@@ -139,7 +107,10 @@ export const sanitizeSurvey = (
           })
         : [],
     })),
-    key_choice: survey.key_choice ?? [],
+    key_choice: (survey.key_choice ?? []).map((kc) => ({
+      ...kc,
+      description_i18n: kc.description_i18n ?? undefined,
+    })),
     skip_logic: normalizeSkipLogic(survey.skip_logic),
   };
 };

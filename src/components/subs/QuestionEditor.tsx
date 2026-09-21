@@ -1,13 +1,12 @@
-import React, { useMemo, useCallback } from "react";
-import { TextCursor, Trash2 } from "lucide-react";
+import { useMemo, useCallback, useEffect } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Copy, GripVertical, TextCursor, Trash2 } from "lucide-react";
 import type { SurveyQuestion, QuestionType } from "../..";
 import {
-  createEmptyOption,
   RecursiveOptionEditor,
-  useAuth,
-  useSurvey,
 } from "../..";
-import { useMetaContext } from "../..";
+import { useSurveyContext, useMetaContext } from "../..";
 import { CheckboxRadio, Input, Select } from "../forms/FormsComponent";
 
 interface QuestionEditorProps {
@@ -17,6 +16,7 @@ interface QuestionEditorProps {
   questions: SurveyQuestion[];
   onUpdate: (updates: Partial<SurveyQuestion>) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }
 
 /* -------------------------------
@@ -31,19 +31,17 @@ const labelBase =
 
 export const QuestionEditor: React.FC<QuestionEditorProps> = ({
   question,
-  // index,
   categories,
   questions,
   onUpdate,
   onDelete,
+  onDuplicate,
 }) => {
-  const { survey } = useSurvey();
   const { meta, loading: metaLoading } = useMetaContext();
+  const { survey, editingLanguage, getI18nValue, setI18nValue } = useSurveyContext();
   const questionTypes = useMemo(() => meta?.question_types || [], [meta]);
   const validationType = useMemo(() => meta?.validation_type || [], [meta]);
 
-  // OPTIMIZATION 1: Memoize Metadata Lookup
-  // Prevents array searching on every keystroke
   const typeMeta = useMemo(
     () => questionTypes?.find((t) => t.value === question.q_type),
     [questionTypes, question.q_type],
@@ -51,40 +49,44 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
 
   const havePlacehoder = typeMeta?.has_plh ?? false;
   const requiresOptionsDep = typeMeta?.has_options ?? false;
-  // Only keep options if the type requires them
-  if (!requiresOptionsDep) {
-    question.options = []; // clear any pre-existing options
-  } else {
-    // Ensure there's at least one default option
-    if (!question.options || question.options.length === 0) {
-      question.options = [createEmptyOption(1), createEmptyOption(2)];
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: question.sequence_num });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  useEffect(() => {
+    if (!requiresOptionsDep && question.options.length > 0) {
+      onUpdate({ options: [] });
     }
-  }
-  // OPTIMIZATION 2: Memoize Eligible Parents Calculation
-  // This was likely the biggest bottleneck. Previously, it filtered through
-  // ALL questions on every render. Now it recalculates only when list changes.
+  }, [requiresOptionsDep]);
+
   const eligibleParents = useMemo(() => {
     return questions.filter((parentQ) => {
-      // 1. Must be before current question
       if (parentQ.sequence_num >= question.sequence_num) return false;
-
-      // 2. Parent must have options (to be a dependency source)
       const parentMeta = questionTypes.find((t) => t.value === parentQ.q_type);
       return parentMeta?.has_options;
     });
   }, [questions, question.sequence_num, questionTypes]);
 
-  // OPTIMIZATION 3: Stable Handler for Child Component
-  // Crucial: This ensures RecursiveOptionEditor doesn't re-render unnecessarily
   const handleOptionsChange = useCallback(
     (newOptions: any[]) => {
       onUpdate({ options: newOptions });
     },
     [onUpdate],
   );
-  // These strings match Django's permission codenames: "app_label.permission_codename"
+
   if (metaLoading) return <div>Loading permissions...</div>;
-  // 3. Safety Check: If meta loaded but is empty (API error), handle gracefully
   if (questionTypes.length === 0) {
     return (
       <div className="p-4 text-red-500">
@@ -92,18 +94,19 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
       </div>
     );
   }
-  // const canEdit = can("eeusurvey_app.change_survey");
-  // const canDelete = can("eeusurvey_app.delete_survey");
 
   return (
-    <div className="group relative rounded-2xl border border-gray-200/70 bg-white/90 backdrop-blur-sm p-6 shadow-sm hover:shadow-lg transition-all duration-300">
+    <div ref={setNodeRef} style={style} className="group relative rounded-2xl border border-gray-200/70 bg-white/90 backdrop-blur-sm p-6 shadow-sm hover:shadow-lg transition-all duration-300">
       {/* Left Accent Bar */}
       <div className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-indigo-500 opacity-70 group-hover:opacity-100 transition" />
 
       <div className="flex gap-5">
-        {/* Drag Handle */}
-        <div className="pt-2 cursor-move text-gray-300 hover:text-gray-500 transition">
-          {/* <GripVertical size={18} /> */}
+        <div
+          className="pt-2 cursor-move text-gray-300 hover:text-gray-500 transition"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical size={18} />
         </div>
 
         <div className="flex-1 space-y-6">
@@ -114,22 +117,51 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 {question.sequence_num}
               </span>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 flex items-center gap-1">
               <Input
                 type="text"
                 placeholder="Enter your question..."
-                value={question.question}
-                onChange={(e) => onUpdate({ question: e.target.value })}
+                value={getI18nValue(question.question_i18n, question.question)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const baseLang = survey.metadata.language || "en";
+                  onUpdate({
+                    question: editingLanguage === baseLang ? val : question.question,
+                    question_i18n: setI18nValue(question.question_i18n, val),
+                  });
+                }}
                 className="w-full text-lg font-semibold bg-transparent border-b border-gray-200 focus:border-indigo-500 outline-none py-1 transition"
               />
+              {editingLanguage !== (survey.metadata.language || "en") && !question.question_i18n?.[editingLanguage] && (
+                <button
+                  type="button"
+                  onClick={() => onUpdate({
+                    question_i18n: { ...(question.question_i18n || {}), [editingLanguage]: question.question },
+                  })}
+                  title="Copy from base language"
+                  className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
+                >
+                  <Copy size={14} />
+                </button>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={onDelete}
-              className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-            >
-              <Trash2 size={18} />
-            </button>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={onDuplicate}
+                title="Duplicate question"
+                className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
+              >
+                <Copy size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
           </div>
 
           {/* ================= SETTINGS ================= */}
@@ -178,7 +210,6 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
             {/* Length Constraints */}
             {question.q_type !== "rating" && (
               <div>
-                {/* Validation Type */}
                 <div>
                   <label className={labelBase}>Verifiable Type</label>
                   <Select
@@ -241,23 +272,64 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
             {havePlacehoder && (
               <div>
                 <label className={labelBase}>Placeholder</label>
-                <div className="relative">
-                  <TextCursor
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    size={16}
-                  />
-                  <Input
-                    type="text"
-                    required={false}
-                    className={`${inputBase} pl-9`}
-                    placeholder="Type your placeholder..."
-                    value={question.placeholder || ""}
-                    onChange={(e) => onUpdate({ placeholder: e.target.value })}
-                  />
+                <div className="flex items-center gap-1">
+                  <div className="relative flex-1">
+                    <TextCursor
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      size={16}
+                    />
+                    <Input
+                      type="text"
+                      required={false}
+                      className={`${inputBase} pl-9`}
+                      placeholder="Type your placeholder..."
+                      value={getI18nValue(question.placeholder_i18n, question.placeholder || "")}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const baseLang = survey.metadata.language || "en";
+                        onUpdate({
+                          placeholder: editingLanguage === baseLang ? val : question.placeholder,
+                          placeholder_i18n: setI18nValue(question.placeholder_i18n, val),
+                        });
+                      }}
+                    />
+                  </div>
+                  {editingLanguage !== (survey.metadata.language || "en") && !question.placeholder_i18n?.[editingLanguage] && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdate({
+                        placeholder_i18n: { ...(question.placeholder_i18n || {}), [editingLanguage]: question.placeholder || "" },
+                      })}
+                      title="Copy from base language"
+                      className="p-1 text-gray-400 hover:text-indigo-600 transition shrink-0"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
           </div>
+
+          {/* ================= DEFAULT VALUE ================= */}
+          {!requiresOptionsDep && question.q_type !== "rating" && (
+            <div className="flex items-center gap-3 pt-2">
+              <label className={labelBase}>Default Value</label>
+              <Input
+                type={question.q_type === "number" ? "number" : "text"}
+                required={false}
+                className={inputBase}
+                placeholder="Optional default"
+                value={question.default_value ?? ""}
+                onChange={(e) => {
+                  const val = question.q_type === "number"
+                    ? (e.target.value === "" ? undefined : Number(e.target.value))
+                    : e.target.value || undefined;
+                  onUpdate({ default_value: val });
+                }}
+              />
+            </div>
+          )}
 
           {/* ================= FLAGS ================= */}
           <div className="flex flex-wrap gap-6 pt-2 border-t border-gray-100">
@@ -292,6 +364,20 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 {flag.label}
               </label>
             ))}
+            {requiresOptionsDep && (
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600 cursor-pointer">
+                <CheckboxRadio
+                  type="checkbox"
+                  required={false}
+                  checked={!!question.shuffle_options}
+                  onChange={(e) =>
+                    onUpdate({ shuffle_options: e.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Shuffle Options
+              </label>
+            )}
           </div>
 
           {/* ================= DEPENDENCY ================= */}
